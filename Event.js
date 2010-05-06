@@ -3,7 +3,7 @@ var CustomEvent = new Class({
 	init: function(type, bubbles, cancelable) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, bubbles || false, cancelable || false);
-		Class.make(evt, this.constructor);
+		Class.make(evt, this.constructor, true);
 		return evt;
 	}
 });
@@ -15,7 +15,7 @@ var DataEvent = new Class({
 	init: function(type, data) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, false, false);
-		Class.make(evt, this.constructor);
+		Class.make(evt, this.constructor, true);
 		evt.data = data;
 		return evt;
 	}
