@@ -229,13 +229,11 @@ simpli5.extend(element, {
 		this.removeAttribute(name);
 		return this;
 	},
-	make: function(component) {
-		this.__proto__ = component.prototype || component.__proto__;
+	make: function(classType) {
+		this.__proto__ = classType.prototype || classType.__proto__;
 		var args = simpli5.toArray(arguments);
 		args.shift();
-		if (this.init) {
-			this.init.apply(this, args);
-		}
+		if ('init' in this) this.init.apply(this, args);
 		return this;
 	},
 	html: function(value) {

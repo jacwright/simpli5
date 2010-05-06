@@ -3,7 +3,7 @@ var CustomEvent = new Class({
 	init: function(type, bubbles, cancelable) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, bubbles || false, cancelable || false);
-		Class.convertTo(evt, this.constructor);
+		Class.make(evt, this.constructor);
 		return evt;
 	}
 });
@@ -15,7 +15,7 @@ var DataEvent = new Class({
 	init: function(type, data) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, false, false);
-		Class.convertTo(evt, this.constructor);
+		Class.make(evt, this.constructor);
 		evt.data = data;
 		return evt;
 	}
@@ -26,7 +26,7 @@ var PropertyChangeEvent = new Class({
 	init: function(type, oldValue, newValue) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, false, false);
-		Class.convertTo(evt, this.constructor);
+		Class.make(evt, this.constructor, true);
 		evt.oldValue = oldValue;
 		evt.newValue = newValue;
 		return evt;
@@ -34,9 +34,6 @@ var PropertyChangeEvent = new Class({
 });
 
 var EventDispatcher = new Class({
-	init: function() {
-		this.events = {};
-	},
 	bind: function(listeners) {
 		if ( !(listeners instanceof Array)) {
 			listeners = simpli5.toArray(arguments);
@@ -48,6 +45,9 @@ var EventDispatcher = new Class({
 	},
 	addEventListener: function(type, listener) {
 		if (typeof listener != 'function') throw 'Listener must be a function';
+		if (!this.events) {
+			this.events = {};
+		}
 		var events = this.events[type];
 		if (!events) {
 			this.events[type] = events = [];
@@ -57,6 +57,7 @@ var EventDispatcher = new Class({
 		events.push(listener);
 	},
 	removeEventListener: function(type, listener) {
+		if (!this.events) return;
 		var events = this.events[type];
 		if (!events) return;
 		var index = events.indexOf(listener);
@@ -65,6 +66,7 @@ var EventDispatcher = new Class({
 		}
 	},
 	dispatchEvent: function(event) {
+		if (!this.events) return;
 		var events = this.events[event.type];
 		if (!events) return;
 		for (var i = 0, l = events.length; i < l; i++) {

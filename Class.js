@@ -45,7 +45,8 @@ simpli5.extend(Class, {
 		}
 		this.__curProto__ = proto;
 		var args = simpli5.toArray(arguments).slice(1);
-		var result = proto[funcName].apply(this, args);
+		var func = proto.__lookupSetter__(funcName) || proto[funcName];
+		var result = func.apply(this, args);
 		this.__curProto__ = curProto;
 		return result;
 	},
@@ -67,8 +68,10 @@ simpli5.extend(Class, {
 			}
 		}
 	},
-	convertTo: function(instance, type) {
-		instance.__proto__ = type.prototype;
-		if (init in instance) instance.init();
+	make: function(instance, classType, skipInit) {
+		instance.__proto__ = classType.prototype;
+		var args = simpli5.toArray(arguments);
+		args.splice(0, 2);
+		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
 	}
 });
