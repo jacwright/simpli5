@@ -16,7 +16,7 @@ function extend(obj1, obj2, force) {
 var window = this, undefined,
 		spaceExpr = /\s+/, dashExpr = /([A-Z])/g, htmlExpr = /^[^<]*(<(.|\s)+>)[^>]*$/, numCSSExpr = /z-?index|font-?weight|opacity|zoom|line-?height/i,
 		div = document.createElement('div'),
-		array = Array.prototype, node = Node.prototype, element = HTMLElement.prototype;
+		array = Array.prototype, element = HTMLElement.prototype;
 
 /**
  * Returns an instance of simpli5
@@ -34,7 +34,7 @@ var simpli5 = function(selector, context) {
 window.simpli5 = simpli5;
 if ( !('$' in window)) window.$ = simpli5;
 
-simpli5.prototype = {
+simpli5.fn = simpli5.prototype = {
 	constructor: simpli5,
 	concat: function(args) {
 		return new simpli5(array.concat.apply(this, arguments), this.context);
@@ -124,6 +124,10 @@ simpli5.prototype = {
 };
 
 simpli5.extend = simpli5.prototype.extend;
+simpli5.node = Node.prototype;
+simpli5.node.extend = simpli5.extend;
+simpli5.element = element;
+simpli5.element.extend = simpli5.extend;
 
 simpli5.extend({
 	forEach: function(iterable, func) {
@@ -149,12 +153,79 @@ simpli5.extend({
 			}
 		}
 		return frag;
+	},
+	
+	html: function(html) {
+		return this.fragment(html).firstChild;
+	},
+	
+	map: function(mapping) {
+		var map = simpli5.map, fn = simpli5.fn, element = simpli5.element, node = simpli5.node;
+		for (var i in mapping) {
+			var type = mapping[i];
+			simpli5.fn[i] = map[type](element[i] || node[i]);
+		}
+	}
+});
+
+simpli5.extend(simpli5.map, {
+	some: function(func) {
+		return function() {
+			var args = arguments;
+			return this.some(function(element) {
+				return func.apply(element, args);
+			});
+		};
+	},
+	every: function(func) {
+		return function() {
+			var args = arguments;
+			return this.every(function(element) {
+				return func.apply(element, args);
+			});
+		};
+	},
+	forEach: function(func) {
+		return function() {
+			var args = arguments;
+			this.forEach(function(element) {
+				func.apply(element, args);
+			});
+			return this;
+		};
+	},
+	merge: function(func) {
+		return function() {
+			var args = arguments;
+			var results = new simpli5();
+			this.forEach(function(element) {
+				results.merge(func.apply(element, args));
+			});
+			return results;
+		};
+	},
+	getterSetter: function(func) {
+		return function() {
+			var args = arguments;
+			if (args.length == 1) {
+				return this.length ? func.call(this[0], args[0]) : undefined;
+			}
+			this.forEach(function(element) {
+				func.apply(element, args);
+			});
+			return this;
+		};
+	},
+	returnFirst: function(func) {
+		return function() {
+			return func.apply(this[0], arguments);
+		};
 	}
 });
 
 
 // DOM Extensions
-simpli5.extend(node, {
+simpli5.node.extend({
 	parent: function(selector) {
 		var node = this.parentNode;
 		while (node) {
@@ -163,7 +234,7 @@ simpli5.extend(node, {
 		}
 	}
 });
-simpli5.extend(element, {
+simpli5.element.extend({
 	find: function(selector) {
 		return new simpli5(selector, this);
 	},
@@ -217,12 +288,13 @@ simpli5.extend(element, {
 			this.style[name] = value;
 			return this;
 		} else {
-			value = this.style[value];
-			if (value.length) return value;
-			
-			name = name.replace(dashExpr, "-$1").toLowerCase();
-			var computedStyle = window.getComputedStyle(this, null);
-			return computedStyle.getPropertyValue(name);
+			value = this.style[name];
+			if (!value) {
+				name = name.replace(dashExpr, "-$1").toLowerCase();
+				var computedStyle = window.getComputedStyle(this, null);
+				value = computedStyle.getPropertyValue(name);
+			}
+			return value;
 		}
 	},
 	removeAttr: function(name) {
@@ -325,69 +397,94 @@ simpli5.extend(element, {
 		var nodes = simpli5.toArray(frag.childeNodes);
 		this.insertBefore(frag, this.firstChild);
 		return nodes;
+	},
+	data: function(name, value) {
+		if (value === undefined) {
+			if ('_data' in this) return this._data[name];
+		} else {
+			if ( !('_data' in this)) this._data = {};
+			return this._data[name];
+		}
+	},
+	outerWidth: function(value) {
+		if (value === undefined) {
+			return this.offsetWidth;
+		} else {
+			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
+			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
+			this.css('width', Math.max(value - padding - border, 0));
+		}
+	},
+	outerHeight: function(value) {
+		if (value === undefined) {
+			return this.offsetHeight;
+		} else {
+			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
+			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
+			this.css('height', Math.max(value - padding - border, 0));
+		}
+	},
+	width: function(value) {
+		if (value === undefined) {
+			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
+			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
+			return this.offsetWidth - padding - border;
+		} else {
+			this.css('width', Math.max(value, 0));
+		}
+	},
+	height: function(value) {
+		if (value === undefined) {
+			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
+			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
+			return this.offsetHeight - padding - border;
+		} else {
+			this.css('height', Math.max(value, 0));
+		}
+	},
+	rect: function(value) {
+		if (value === undefined) {
+			var rect = this.getBoundingClientRect();
+			// allowing returned object to be modified
+			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height};
+		} else {
+			// figure out the top/left offset
+			var rect = this.getBoundingClientRect();
+			var leftOffset = this.offsetLeft - rect.left;
+			var topOffset = this.offsetTop - rect.top;
+			if ('left' in value) this.css('left', value.left + leftOffset);
+			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('width' in value) this.outerWidth(value.width);
+			if ('height' in value) this.outerHeight(value.height);
+		}
 	}
 });
 
-function some(func) {
-	return function() {
-		var args = arguments;
-		return this.some(function(element) {
-			return func.apply(element, args);
-		});
-	};
-}
-function forEach(func) {
-	return function() {
-		var args = arguments;
-		this.forEach(function(element) {
-			func.apply(element, args);
-		});
-		return this;
-	};
-}
-function merge(func) {
-	return function() {
-		var args = arguments;
-		var results = new simpli5();
-		this.forEach(function(element) {
-			results.merge(func.apply(element, args));
-		});
-		return results;
-	};
-}
-function getterSetter(func) {
-	return function() {
-		var args = arguments;
-		if (args.length == 1) {
-			return this.length ? func.call(this[0], args[0]) : undefined;
-		}
-		this.forEach(function(element) {
-			func.apply(element, args);
-		});
-		return this;
-	};
-}
-function returnFirst(func) {
-	return function() {
-		return func.apply(this[0], arguments);
-	};
-}
 
-simpli5.prototype.extend({
-	addClass: forEach(element.addClass),
-	removeClass: forEach(element.removeClass),
-	hasClass: some(element.hasClass),
-	toggleClass: forEach(element.toggleClass),
-	attr: getterSetter(element.attr),
-	removeAttr: forEach(element.removeAttr),
-	make: forEach(element.make),
-	html: getterSetter(element.html),
-	text: getterSetter(element.text),
-	val: getterSetter(element.val),
-	after: merge(element.after),
-	append: merge(element.append),
-	before: merge(element.before),
-	prepend: merge(element.prepend)
+simpli5.map({
+	matches: 'every',
+	addClass: 'forEach',
+	removeClass: 'forEach',
+	hasClass: 'some',
+	toggleClass: 'forEach',
+	attr: 'getterSetter',
+	removeAttr: 'forEach',
+	css: 'getterSetter',
+	make: 'forEach',
+	html: 'getterSetter',
+	text: 'getterSetter',
+	val: 'getterSetter',
+	cleanWhitespace: 'forEach',
+	after: 'merge',
+	append: 'merge',
+	before: 'merge',
+	prepend: 'merge',
+	data: 'getterSetter',
+	width: 'getterSetter',
+	height: 'getterSetter',
+	outerWidth: 'getterSetter',
+	outerHeight: 'getterSetter',
+	rect: 'getterSetter'
 });
 
 })();

@@ -9,6 +9,16 @@ var CustomEvent = new Class({
 });
 
 //initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
+var CustomMouseEvent = new Class({
+	extend: MouseEvent,
+	init: function(type, bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+		var evt = document.createEvent('MouseEvents');
+		evt.initEvent(type, bubbles || false, cancelable || false, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
+		Class.make(evt, this.constructor, true);
+		return evt;
+	}
+});
+
 
 var DataEvent = new Class({
 	extend: Event,
