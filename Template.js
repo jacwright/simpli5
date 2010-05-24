@@ -6,7 +6,8 @@ var Template = new Class({
 		}
 	},
 	
-    regex: /\{([^\{\}]+)\}/g,
+    placeholders: /\{([^\{\}]+)\}/g,
+	innerContent: />(.*)</,
 	
 	replace: function(m, code, index, str, data) {
 		return eval('try { with(data || {}) {' + code + '} }catch(e) {}') || '';
@@ -33,7 +34,7 @@ var Template = new Class({
     apply: function(data) {
 		if (this.compiled) return this.compiled(data);
 	    var replace = this.replace.bind(this, data);
-        return this.html.replace(this.regex, replace);
+        return this.html.replace(this.placeholders, replace);
     },
 	
 	compile: function() {
@@ -44,7 +45,7 @@ var Template = new Class({
 		
 		try {
 			var func = "function(data) { with (data || {}) { return '" +
-				this.html.replace(/\\/g, '\\\\').replace(/(\r\n|\n)/g, '\\n').replace(/'/g, "\\'").replace(this.regex, fn) +
+				this.html.replace(/\\/g, '\\\\').replace(/(\r\n|\n)/g, '\\n').replace(/'/g, "\\'").replace(this.placeholders, fn) +
 			"'; }}";
 			this.compiled = eval('(' + func + ')');
 		} catch(e) {

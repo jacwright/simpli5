@@ -85,13 +85,30 @@ var EventDispatcher = new Class({
 	}
 });
 
-$.extend(EventDispatcher.prototype, {
-	on: EventDispatcher.prototype.addEventListener,
-	un: EventDispatcher.prototype.removeEventListener
+simpli5.extend(EventDispatcher.prototype, {
+	on: function(type, listener, capture) {
+		var types = type.split(/\s*,\s*/);
+		listener.bound = listener.bind(this);
+		listener = listener.bound;
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.addEventListener(types[i], listener, capture);
+		};
+	},
+	un: function(type, listener, capture) {
+		var types = type.split(/\s*,\s*/);
+		listener = listener.bound || listener;
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.removeEventListener(types[i], listener, capture);
+		};
+	}
 });
 
-$.extend(Node.prototype, {
-	on: Node.prototype.addEventListener,
-	un: Node.prototype.removeEventListener,
-	bind: EventDispatcher.prototype.bind
+simpli5.node.extend({
+	on: EventDispatcher.prototype.on,
+	un: EventDispatcher.prototype.un
+});
+
+simpli5.map({
+	on: 'forEach',
+	un: 'forEach'
 });

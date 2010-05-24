@@ -1,16 +1,3 @@
-/**
- *  Copy all parameters from object 2 onto object 1.
- * @param obj1
- * @param obj2
- * @param [force] Optionally force overriding existing parameters
- */
-function extend(obj1, obj2, force) {
-	for (var i in obj2) {
-		if (!obj2.hasOwnProperty(i)) continue;
-		if (force || !(i in obj1)) obj1[i] = obj2[i];
-	}
-}
-
 (function() {
 	
 var window = this, undefined,
@@ -130,6 +117,11 @@ simpli5.element = element;
 simpli5.element.extend = simpli5.extend;
 
 simpli5.extend({
+	
+	onReady: function(listener) {
+		document.on('DOMContentLoaded', listener);
+	},
+	
 	forEach: function(iterable, func) {
 		array.forEach.call(iterable, func);
 	},
@@ -234,6 +226,7 @@ simpli5.node.extend({
 		}
 	}
 });
+HTMLDocument.prototype.findFirst = HTMLDocument.prototype.querySelector;
 simpli5.element.extend({
 	find: function(selector) {
 		return new simpli5(selector, this);
