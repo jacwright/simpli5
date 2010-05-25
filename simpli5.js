@@ -1080,6 +1080,11 @@ var Template = new Class({
 		return "' + ((" + code.replace(this.unEscapeSingleExp, "'") + ") || '') + '";
 	},
 	
+	compileReplaceArray: function(match, code) {
+		// slashes have been added for all ', remove for code
+		return "', ((" + code.replace(this.unEscapeSingleExp, "'") + ") || ''), '";
+	},
+	
 	compile: function() {
 		try {
 			var func = "function(data) { return '" +
@@ -1164,12 +1169,12 @@ var Template = new Class({
 			}
 			if (!element) element = nodes[nodes.length - 1];
 			
-			setter = eval("(function() { element.html('" +
+			setter = eval("(function() { element.html(['" +
 				content.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
-			"'); })").bind(topElement);
+						.replace(this.placeholdersExp, this.compileReplaceArray) +
+			"']); })").bind(topElement);
 			
 			// pull out binding expressions, there may be more than one
 			while ( (match = this.placeholdersExp.exec(content)) ) {
