@@ -37,6 +37,11 @@
 						<configuration>
 							<webappSourceDir>${basedir}</webappSourceDir>
 							<webappTargetDir>${basedir}</webappTargetDir>
+							<cssSourceDir>css</cssSourceDir>
+							<cssFinalFile>simpli5.css</cssFinalFile>
+							<cssSourceFiles>
+								<param>HoverMenu.css</param>
+							</cssSourceFiles>
 							<jsSourceDir>./</jsSourceDir>
 							<jsFinalFile>simpli5.js</jsFinalFile>
 							<jsSourceFiles>

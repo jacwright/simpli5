@@ -127,7 +127,10 @@ simpli5.extend({
 	},
 	
 	toArray: function(iterable) {
-		return array.slice.call(iterable);
+		if (iterable instanceof Array) return iterable;
+		var arr = array.slice.call(iterable);
+		if (!arr.length && iterable != null && !('length' in iterable)) return [iterable];
+		return arr;
 	},
 	
 	fragment: function(html) {
@@ -304,8 +307,15 @@ simpli5.element.extend({
 	html: function(value) {
 		if (value === undefined) {
 			return this.innerHTML;
-		} else {
+		} else if (typeof value == 'string') {
 			this.innerHTML = value;
+		} else {
+			var element = this;
+			this.innerHTML = '';
+			value = simpli5.toArray(value);
+			simpli5.forEach(value, function(node) {
+				element.append(node);
+			});
 		}
 		return this;
 	},
