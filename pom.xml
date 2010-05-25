@@ -40,7 +40,7 @@
 							<jsSourceDir>./</jsSourceDir>
 							<jsFinalFile>simpli5.js</jsFinalFile>
 							<jsSourceFiles>
-								<param>Query.js</param>
+								<param>Core.js</param>
 								<param>Function.js</param>
 								<param>Class.js</param>
 								<param>Event.js</param>

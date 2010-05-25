@@ -88,7 +88,7 @@ simpli5.fn = simpli5.prototype = {
 	},
 	
 	merge: function(elems) {
-		if ( !(elems instanceof Array) && elems.length) {
+		if ( !(elems instanceof Array) && 'length' in elems) {
 			elems = simpli5.toArray(elems);
 		}
 		if (elems instanceof Array) {
