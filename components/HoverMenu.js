@@ -10,7 +10,7 @@ var HoverMenu = new Component({
 
 var HoverMenuItem = new Component({
 	extend: HTMLLIElement,
-	template: new Template('<li class="{icon}">{label}</li>'),
+	template: new Template('<li class="{this.icon}">{this.label}</li>'),
 	
 	init: function() {
 		
