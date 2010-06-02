@@ -69,7 +69,7 @@ simpli5.fn = simpli5.prototype = {
 		} else if (typeof selector === "string") {
 			this.merge(this.context.querySelectorAll(selector));
 		// HANDLE: $(function) -- Shortcut for document ready
-		} else if (typeof selector == 'function') {
+		} else if (selector instanceof Function) {
 			return simpli5.onReady(selector);
 		} else {
 			this.merge(selector);
@@ -88,7 +88,8 @@ simpli5.fn = simpli5.prototype = {
 	},
 	
 	merge: function(elems) {
-		if ( !(elems instanceof Array) && 'length' in elems) {
+		if (elems == null) return;
+		if ( !(elems instanceof Array) && ('length' in elems)) {
 			elems = simpli5.toArray(elems);
 		}
 		if (elems instanceof Array) {
@@ -134,10 +135,12 @@ simpli5.extend({
 	},
 	
 	fragment: function(html) {
-		if (html instanceof Node) return html;
-		
 		var frag = document.createDocumentFragment();
-		if (typeof html == 'string') {
+		
+		if (html instanceof Node) {
+			return html;
+			frag.appendChild(html);
+		} else if (typeof html == 'string') {
 			div.innerHTML = html;
 			while (div.firstChild) {
 				frag.appendChild(div.firstChild);
@@ -229,12 +232,13 @@ simpli5.node.extend({
 		}
 	}
 });
-HTMLDocument.prototype.findFirst = HTMLDocument.prototype.querySelector;
 simpli5.element.extend({
 	find: function(selector) {
 		return new simpli5(selector, this);
 	},
-	findFirst: element.querySelector,
+	findFirst: function(selector) {
+		return this.querySelector(selector);
+	},
 	matches: (element.webkitMatchesSelector || element.mozMatchesSelector),
 	addClass: function(className) {
 		var classes = this.className.split(spaceExpr);
@@ -384,8 +388,9 @@ simpli5.element.extend({
 		return nodes;
 	},
 	append: function(html) {
+		if (!html || (html.hasOwnProperty('length') && !html.length)) return;
 		var frag = simpli5.fragment(html);
-		var nodes = simpli5.toArray(frag.childeNodes);
+		var nodes = simpli5(frag.childNodes);
 		this.appendChild(frag);
 		return nodes;
 	},
@@ -401,12 +406,12 @@ simpli5.element.extend({
 		this.insertBefore(frag, this.firstChild);
 		return nodes;
 	},
-	data: function(name, value) {
+	dataStore: function(name, value) {
 		if (value === undefined) {
 			if ('_data' in this) return this._data[name];
 		} else {
 			if ( !('_data' in this)) this._data = {};
-			return this._data[name];
+			this._data[name] = value;
 		}
 	},
 	outerWidth: function(value) {
@@ -449,7 +454,7 @@ simpli5.element.extend({
 		if (value === undefined) {
 			var rect = this.getBoundingClientRect();
 			// allowing returned object to be modified
-			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height};
+			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom};
 		} else {
 			// figure out the top/left offset
 			var rect = this.getBoundingClientRect();
@@ -457,12 +462,25 @@ simpli5.element.extend({
 			var topOffset = this.offsetTop - rect.top;
 			if ('left' in value) this.css('left', value.left + leftOffset);
 			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
+			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
 		}
+	},
+	show: function() {
+		this.css('display', '');
+	},
+	hide: function() {
+		this.css('display', 'none');
+	},
+	visible: function() {
+		return this.rect().width != 0;
 	}
 });
 
+HTMLDocument.prototype.find = simpli5.element.find;
+HTMLDocument.prototype.findFirst = simpli5.element.findFirst;
 
 simpli5.map({
 	matches: 'every',
@@ -482,7 +500,7 @@ simpli5.map({
 	append: 'merge',
 	before: 'merge',
 	prepend: 'merge',
-	data: 'getterSetter',
+	dataStore: 'getterSetter',
 	width: 'getterSetter',
 	height: 'getterSetter',
 	outerWidth: 'getterSetter',
@@ -570,7 +588,7 @@ function Class(implementation, constructor) {
 		if (implementation.implement) {
 			var impl = implementation.implement instanceof Array ? implementation.implement : [implementation.implement];
 			for (var i = 0, l = impl.length; i < l; i++) {
-				Class.implement(constructor, impl);
+				Class.implement(constructor, impl[i]);
 			}
 			delete implementation.implement;
 		}
@@ -585,7 +603,7 @@ function Class(implementation, constructor) {
 simpli5.extend(Class, {
 	subclass: function() {},
 	callSuper: function(funcName) {
-		var curProto = this.__curProto__ || this.__proto__;
+		var curProto = this.__curProto__ || (this.__proto__[funcName] == this[funcName] ? this.__proto__ : this);
 		var proto = curProto.__proto__;
 		while (proto && !proto.hasOwnProperty(funcName)) {
 			proto = proto.__proto__;
@@ -621,8 +639,18 @@ simpli5.extend(Class, {
 	make: function(instance, classType, skipInit) {
 		instance.__proto__ = classType.prototype;
 		var args = simpli5.toArray(arguments);
-		args.splice(0, 2);
+		args.splice(0, 3);
 		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
+	},
+	insert: function(instance, classType) {
+		var proto = {};
+		for (var i in classType.prototype) {
+			if (classType.prototype.hasOwnProperty(i)) {
+				proto[i] = classType.prototype[i];
+			}
+		}
+		proto.__proto__ = instance.__proto__;
+		instance.__proto__ = proto;
 	}
 });var CustomEvent = new Class({
 	extend: Event,
@@ -637,9 +665,9 @@ simpli5.extend(Class, {
 //initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
 var CustomMouseEvent = new Class({
 	extend: MouseEvent,
-	init: function(type, bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+	init: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
 		var evt = document.createEvent('MouseEvents');
-		evt.initEvent(type, bubbles || false, cancelable || false, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
+		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
 		Class.make(evt, this.constructor, true);
 		return evt;
 	}
@@ -657,26 +685,32 @@ var DataEvent = new Class({
 	}
 });
 
-var PropertyChangeEvent = new Class({
+var ArrayChangeEvent = new Class({
 	extend: Event,
-	init: function(type, oldValue, newValue) {
+	init: function(action, startIndex, endIndex, items) {
 		var evt = document.createEvent('Events');
-		evt.initEvent(type, false, false);
+		evt.initEvent('change', false, false);
 		Class.make(evt, this.constructor, true);
-		evt.oldValue = oldValue;
-		evt.newValue = newValue;
+		evt.action = action;
+		evt.startIndex = startIndex;
+		evt.endIndex = endIndex;
+		evt.items = items;
 		return evt;
 	}
 });
 
 var EventDispatcher = new Class({
-	bind: function(listeners) {
+	createClosures: function(listeners) {
 		if ( !(listeners instanceof Array)) {
-			listeners = simpli5.toArray(arguments);
+			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
+				listeners = listeners.split(/\s*,\s*/);
+			} else {
+				listeners = simpli5.toArray(arguments);
+			}
 		} 
 		for (var i = 0, l = listeners.length; i < l; i++) {
 			var methodName = listeners[i];
-			this[methodName] = this[methodName].bind(this);
+			if (methodName in this) this[methodName] = this[methodName].bind(this);
 		}
 	},
 	addEventListener: function(type, listener) {
@@ -714,11 +748,16 @@ var EventDispatcher = new Class({
 simpli5.extend(EventDispatcher.prototype, {
 	on: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
+		//console.log(listener, typeof listener, listener instanceof NodeList);
+		if (listener instanceof NodeList) {
+			console.log(listener, listener.bind);
+		}
 		listener.bound = listener.bind(this);
 		listener = listener.bound;
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.addEventListener(types[i], listener, capture);
 		};
+		return this;
 	},
 	un: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
@@ -726,10 +765,16 @@ simpli5.extend(EventDispatcher.prototype, {
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.removeEventListener(types[i], listener, capture);
 		};
+		return this;
 	}
 });
 
 simpli5.node.extend({
+	on: EventDispatcher.prototype.on,
+	un: EventDispatcher.prototype.un,
+	createClosures: EventDispatcher.prototype.createClosures
+});
+simpli5.extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
 });
@@ -739,9 +784,22 @@ simpli5.map({
 	un: 'forEach'
 });
 
-var PropertyChange = {
-	
-	observe: function(obj, property, observer) {
+var PropertyChange;
+var Bind;
+var BindableArray;
+
+(function() {
+
+PropertyChange = {
+
+	/**
+	 * 
+	 * @param obj
+	 * @param property
+	 * @param observer
+	 * @param [allTypes]
+	 */
+	observe: function(obj, property, observer, allTypes) {
 		var props = property.split(/\s*,\s*/);
 		var properties = obj.__observers__;
 		if (!properties) {
@@ -750,6 +808,9 @@ var PropertyChange = {
 		
 		for (var i = 0, l = props.length; i < l; i++) {
 			property = props[i];
+			if (typeof obj == 'function' && allTypes) {
+				property = '(' + property + ')';
+			}
 			if (!this.isObservable(obj, property)) {
 				this.makeObservable(obj, property);
 			}
@@ -775,15 +836,27 @@ var PropertyChange = {
 		}
 	},
 	
-	dispatch: function(obj, property, oldValue, newValue) {
-		if (oldValue === newValue) return;
-		var properties = obj.__observers__;
+	dispatch: function(obj, property, oldValue, newValue, force) {
+		if (!force && oldValue === newValue) return;
+		var properties = obj.__observers__, i, l;
 		if (!properties) return;
 		
-		var observers = properties[property];
-		if (!observers) return;
-		for (var i = 0, l = observers.length; i < l; i++) {
+		var observers = [].concat(properties[property] || []).concat(properties['*'] || []);
+		for (i = 0, l = observers.length; i < l; i++) {
 			observers[i](property, oldValue, newValue, obj);
+		}
+		
+		var constructor = obj.constructor;
+		property = '(' + ')';
+		while (constructor) {
+			properties = constructor.__observers__;
+			constructor = constructor.prototype.__proto__ ? constructor.prototype.__proto__.constructor : null;
+			if (!properties) continue;
+			
+			observers = [].concat(properties[property] || []).concat(properties['(*)'] || []);
+			for (i = 0, l = observers.length; i < l; i++) {
+				observers[i](property, oldValue, newValue, obj);
+			}
 		}
 	},
 	
@@ -825,7 +898,7 @@ var PropertyChange = {
 };
 
 
-var Bind = {
+Bind = {
 	
 	property: function(source, sourceProp, target, targetProp, twoWay) {
 		var binding = new Binding(source, sourceProp, target, targetProp, twoWay);
@@ -834,7 +907,7 @@ var Bind = {
 			source.__bindings__ = bindings = [];
 		}
 		bindings.push(binding);
-		var bindings = target.__bindings__;
+		bindings = target.__bindings__;
 		if (!bindings) {
 			target.__bindings__ = bindings = [];
 		}
@@ -873,7 +946,7 @@ var Bind = {
 		
 		for (var i = 0, l = bindings.length; i < l; i++) {
 			var binding = bindings[i];
-			if (binding.matches(source, sourcePath, target, targetPath, twoWay)) {
+			if (binding.matches(source, sourcePath, setter)) {
 				binding.release();
 				bindings.splice(i, 1);
 				break;
@@ -882,15 +955,20 @@ var Bind = {
 	},
 	
 	removeAll: function(target) {
-		var bindings = target.__bindings__;
+		var bindings = target.__bindings__, index;
 		if (!bindings) return;
 		
 		for (var i = 0, l = bindings.length; i < l; i++) {
 			var binding = bindings[i];
+			if (binding.source.length) {
+				var bindSource = binding.source[0];
+				index = bindSource.__bindings__.indexOf(binding);
+				if (index != -1) bindSource.__bindings__.splice(index, 1);
+			}
 			if (binding.target.length) {
-				var target = binding.target.length;
-				var index = target.__bindings__.indexOf(binding);
-				if (index != -1) target.__bindings__.splice(index, 1);
+				var bindTarget = binding.target[0];
+				index = bindTarget.__bindings__.indexOf(binding);
+				if (index != -1) bindTarget.__bindings__.splice(index, 1);
 			}
 			binding.release();
 		}
@@ -978,8 +1056,6 @@ var Binding = new Class({
 		var oldValue = this.value;
 		this.value = this.bindPath(base, item, pathIndex);
 		
-		if (oldValue === this.value) return;
-		
 		this.updating = true;
 		if (this.setter) {
 			var target = this.source[this.source.length - 1];
@@ -1002,7 +1078,7 @@ var Binding = new Class({
 	onChange: function(property, oldValue, newValue, target) {
 		if (this.updating) return;
 		var pathIndex, prop;
-
+		
 		if ( (pathIndex = this.source.indexOf(target)) != -1) {
 			prop = this.sourcePath[pathIndex];
 			if (prop == property) {
@@ -1029,6 +1105,73 @@ var Binding = new Class({
 		}
 	}
 });
+
+BindableArray = new Class({
+	extend: Array,
+	implement: EventDispatcher,
+	
+	push: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice();
+		args.unshift('push');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('add', this.length - items.length, this.length - 1, items));
+		return result;
+	},
+	
+	pop: function() {
+		var result = this.callSuper.call(this, 'pop');
+		this.dispatchEvent(new ArrayChangeEvent('remove', this.length, this.length, [result]));
+		return result;
+	},
+	
+	shift: function() {
+		var result = this.callSuper.call(this, 'shift');
+		this.dispatchEvent(new ArrayChangeEvent('remove', 0, 0, [result]));
+		return result;
+	},
+	
+	unshift: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice();
+		args.unshift('unshift');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('add', 0, items.length, items));
+		return result;
+	},
+	
+	splice: function(index, howmany, element1) {
+		var args = $.toArray(arguments);
+		var items = args.slice(2);
+		args.unshift('splice');
+		var result = this.callSuper.apply(this, args);
+		
+		if (howmany) {
+			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
+		}
+		if (items.length) {
+			this.dispatchEvent(new ArrayChangeEvent('add', index, items.length - 1, items));
+		}
+		return result;
+	},
+	
+	sort: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice(2);
+		args.unshift('sort');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
+		return result;
+	},
+	
+	reverse: function() {
+		var result = this.callSuper('reverse');
+		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
+		return result;
+	}
+});
+
+})();
 var Template = new Class({
 	init: function (html) {
 		this.compiled = null;
@@ -1197,6 +1340,7 @@ var Template = new Class({
 	function constructor(data) { // the data object for an itemRenderer
 		var view = this.template.createBound(data);
 		view.__proto__ = this.__proto__;
+		if ( !(view instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
 		if (view.init) {
 			view.init.apply(view, arguments);
 		}
@@ -1219,6 +1363,53 @@ var Button = new Component({
 	}
 });
 
+
+/**
+ * Setup rollover/rollout events which components use often
+ */
+(function() {
+	
+	function listener(event) {
+		var child = event.relatedTarget;
+		var ancestor = event.target;
+		// cancel if the relatedTarget is a child of the target
+		while (child) {
+			if (child.parentNode == ancestor) return;
+			child = child.parentNode;
+		}
+		
+		// dispatch for the child and each parentNode except the common ancestor
+		ancestor = event.target.parentNode;
+		var ancestors = [];
+		while (ancestor) {
+			ancestors.push(ancestor);
+			ancestor = ancestor.parentNode;
+		}
+		ancestor = event.relatedTarget;
+		while (ancestor) {
+			if (ancestors.indexOf(ancestor) != -1) break;
+			ancestor = ancestor.parentNode;
+		}
+		child = event.target;
+		while (child) {
+			var mouseEvent = document.createEvent('MouseEvents');
+			mouseEvent.initEvent(event.type.replace('mouse', 'roll'),
+					false, // does not bubble
+					event.cancelable,
+					event.view,
+					event.detail, event.screenX, event.screenY,
+					event.ctrlKey, event.altKey, event.metaKey, event.button,
+					event.relatedTarget);
+			child.dispatchEvent(mouseEvent);
+			child = child.parentNode;
+			if (child == ancestor) break;
+		}
+	}
+	
+	// setup the rollover/out events for components to use
+	document.addEventListener('mouseover', listener, false);
+	document.addEventListener('mouseout', listener, false);
+})();
 Storage.prototype.get = function(key) {
     return JSON.parse(this.getItem(key));
 }

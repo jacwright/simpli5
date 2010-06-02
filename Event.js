@@ -11,9 +11,9 @@ var CustomEvent = new Class({
 //initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
 var CustomMouseEvent = new Class({
 	extend: MouseEvent,
-	init: function(type, bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+	init: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
 		var evt = document.createEvent('MouseEvents');
-		evt.initEvent(type, bubbles || false, cancelable || false, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
+		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
 		Class.make(evt, this.constructor, true);
 		return evt;
 	}
@@ -31,26 +31,32 @@ var DataEvent = new Class({
 	}
 });
 
-var PropertyChangeEvent = new Class({
+var ArrayChangeEvent = new Class({
 	extend: Event,
-	init: function(type, oldValue, newValue) {
+	init: function(action, startIndex, endIndex, items) {
 		var evt = document.createEvent('Events');
-		evt.initEvent(type, false, false);
+		evt.initEvent('change', false, false);
 		Class.make(evt, this.constructor, true);
-		evt.oldValue = oldValue;
-		evt.newValue = newValue;
+		evt.action = action;
+		evt.startIndex = startIndex;
+		evt.endIndex = endIndex;
+		evt.items = items;
 		return evt;
 	}
 });
 
 var EventDispatcher = new Class({
-	bind: function(listeners) {
+	createClosures: function(listeners) {
 		if ( !(listeners instanceof Array)) {
-			listeners = simpli5.toArray(arguments);
+			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
+				listeners = listeners.split(/\s*,\s*/);
+			} else {
+				listeners = simpli5.toArray(arguments);
+			}
 		} 
 		for (var i = 0, l = listeners.length; i < l; i++) {
 			var methodName = listeners[i];
-			this[methodName] = this[methodName].bind(this);
+			if (methodName in this) this[methodName] = this[methodName].bind(this);
 		}
 	},
 	addEventListener: function(type, listener) {
@@ -88,11 +94,16 @@ var EventDispatcher = new Class({
 simpli5.extend(EventDispatcher.prototype, {
 	on: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
+		//console.log(listener, typeof listener, listener instanceof NodeList);
+		if (listener instanceof NodeList) {
+			console.log(listener, listener.bind);
+		}
 		listener.bound = listener.bind(this);
 		listener = listener.bound;
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.addEventListener(types[i], listener, capture);
 		};
+		return this;
 	},
 	un: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
@@ -100,10 +111,16 @@ simpli5.extend(EventDispatcher.prototype, {
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.removeEventListener(types[i], listener, capture);
 		};
+		return this;
 	}
 });
 
 simpli5.node.extend({
+	on: EventDispatcher.prototype.on,
+	un: EventDispatcher.prototype.un,
+	createClosures: EventDispatcher.prototype.createClosures
+});
+simpli5.extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
 });

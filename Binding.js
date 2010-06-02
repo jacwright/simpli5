@@ -1,7 +1,20 @@
 
-var PropertyChange = {
-	
-	observe: function(obj, property, observer) {
+var PropertyChange;
+var Bind;
+var BindableArray;
+
+(function() {
+
+PropertyChange = {
+
+	/**
+	 * 
+	 * @param obj
+	 * @param property
+	 * @param observer
+	 * @param [allTypes]
+	 */
+	observe: function(obj, property, observer, allTypes) {
 		var props = property.split(/\s*,\s*/);
 		var properties = obj.__observers__;
 		if (!properties) {
@@ -10,6 +23,9 @@ var PropertyChange = {
 		
 		for (var i = 0, l = props.length; i < l; i++) {
 			property = props[i];
+			if (typeof obj == 'function' && allTypes) {
+				property = '(' + property + ')';
+			}
 			if (!this.isObservable(obj, property)) {
 				this.makeObservable(obj, property);
 			}
@@ -35,15 +51,27 @@ var PropertyChange = {
 		}
 	},
 	
-	dispatch: function(obj, property, oldValue, newValue) {
-		if (oldValue === newValue) return;
-		var properties = obj.__observers__;
+	dispatch: function(obj, property, oldValue, newValue, force) {
+		if (!force && oldValue === newValue) return;
+		var properties = obj.__observers__, i, l;
 		if (!properties) return;
 		
-		var observers = properties[property];
-		if (!observers) return;
-		for (var i = 0, l = observers.length; i < l; i++) {
+		var observers = [].concat(properties[property] || []).concat(properties['*'] || []);
+		for (i = 0, l = observers.length; i < l; i++) {
 			observers[i](property, oldValue, newValue, obj);
+		}
+		
+		var constructor = obj.constructor;
+		property = '(' + ')';
+		while (constructor) {
+			properties = constructor.__observers__;
+			constructor = constructor.prototype.__proto__ ? constructor.prototype.__proto__.constructor : null;
+			if (!properties) continue;
+			
+			observers = [].concat(properties[property] || []).concat(properties['(*)'] || []);
+			for (i = 0, l = observers.length; i < l; i++) {
+				observers[i](property, oldValue, newValue, obj);
+			}
 		}
 	},
 	
@@ -85,7 +113,7 @@ var PropertyChange = {
 };
 
 
-var Bind = {
+Bind = {
 	
 	property: function(source, sourceProp, target, targetProp, twoWay) {
 		var binding = new Binding(source, sourceProp, target, targetProp, twoWay);
@@ -94,7 +122,7 @@ var Bind = {
 			source.__bindings__ = bindings = [];
 		}
 		bindings.push(binding);
-		var bindings = target.__bindings__;
+		bindings = target.__bindings__;
 		if (!bindings) {
 			target.__bindings__ = bindings = [];
 		}
@@ -133,7 +161,7 @@ var Bind = {
 		
 		for (var i = 0, l = bindings.length; i < l; i++) {
 			var binding = bindings[i];
-			if (binding.matches(source, sourcePath, target, targetPath, twoWay)) {
+			if (binding.matches(source, sourcePath, setter)) {
 				binding.release();
 				bindings.splice(i, 1);
 				break;
@@ -142,15 +170,20 @@ var Bind = {
 	},
 	
 	removeAll: function(target) {
-		var bindings = target.__bindings__;
+		var bindings = target.__bindings__, index;
 		if (!bindings) return;
 		
 		for (var i = 0, l = bindings.length; i < l; i++) {
 			var binding = bindings[i];
+			if (binding.source.length) {
+				var bindSource = binding.source[0];
+				index = bindSource.__bindings__.indexOf(binding);
+				if (index != -1) bindSource.__bindings__.splice(index, 1);
+			}
 			if (binding.target.length) {
-				var target = binding.target.length;
-				var index = target.__bindings__.indexOf(binding);
-				if (index != -1) target.__bindings__.splice(index, 1);
+				var bindTarget = binding.target[0];
+				index = bindTarget.__bindings__.indexOf(binding);
+				if (index != -1) bindTarget.__bindings__.splice(index, 1);
 			}
 			binding.release();
 		}
@@ -238,8 +271,6 @@ var Binding = new Class({
 		var oldValue = this.value;
 		this.value = this.bindPath(base, item, pathIndex);
 		
-		if (oldValue === this.value) return;
-		
 		this.updating = true;
 		if (this.setter) {
 			var target = this.source[this.source.length - 1];
@@ -262,7 +293,7 @@ var Binding = new Class({
 	onChange: function(property, oldValue, newValue, target) {
 		if (this.updating) return;
 		var pathIndex, prop;
-
+		
 		if ( (pathIndex = this.source.indexOf(target)) != -1) {
 			prop = this.sourcePath[pathIndex];
 			if (prop == property) {
@@ -289,3 +320,70 @@ var Binding = new Class({
 		}
 	}
 });
+
+BindableArray = new Class({
+	extend: Array,
+	implement: EventDispatcher,
+	
+	push: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice();
+		args.unshift('push');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('add', this.length - items.length, this.length - 1, items));
+		return result;
+	},
+	
+	pop: function() {
+		var result = this.callSuper.call(this, 'pop');
+		this.dispatchEvent(new ArrayChangeEvent('remove', this.length, this.length, [result]));
+		return result;
+	},
+	
+	shift: function() {
+		var result = this.callSuper.call(this, 'shift');
+		this.dispatchEvent(new ArrayChangeEvent('remove', 0, 0, [result]));
+		return result;
+	},
+	
+	unshift: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice();
+		args.unshift('unshift');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('add', 0, items.length, items));
+		return result;
+	},
+	
+	splice: function(index, howmany, element1) {
+		var args = $.toArray(arguments);
+		var items = args.slice(2);
+		args.unshift('splice');
+		var result = this.callSuper.apply(this, args);
+		
+		if (howmany) {
+			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
+		}
+		if (items.length) {
+			this.dispatchEvent(new ArrayChangeEvent('add', index, items.length - 1, items));
+		}
+		return result;
+	},
+	
+	sort: function() {
+		var args = $.toArray(arguments);
+		var items = args.slice(2);
+		args.unshift('sort');
+		var result = this.callSuper.apply(this, args);
+		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
+		return result;
+	},
+	
+	reverse: function() {
+		var result = this.callSuper('reverse');
+		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
+		return result;
+	}
+});
+
+})();

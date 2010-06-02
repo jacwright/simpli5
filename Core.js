@@ -69,7 +69,7 @@ simpli5.fn = simpli5.prototype = {
 		} else if (typeof selector === "string") {
 			this.merge(this.context.querySelectorAll(selector));
 		// HANDLE: $(function) -- Shortcut for document ready
-		} else if (typeof selector == 'function') {
+		} else if (selector instanceof Function) {
 			return simpli5.onReady(selector);
 		} else {
 			this.merge(selector);
@@ -88,7 +88,8 @@ simpli5.fn = simpli5.prototype = {
 	},
 	
 	merge: function(elems) {
-		if ( !(elems instanceof Array) && 'length' in elems) {
+		if (elems == null) return;
+		if ( !(elems instanceof Array) && ('length' in elems)) {
 			elems = simpli5.toArray(elems);
 		}
 		if (elems instanceof Array) {
@@ -134,10 +135,12 @@ simpli5.extend({
 	},
 	
 	fragment: function(html) {
-		if (html instanceof Node) return html;
-		
 		var frag = document.createDocumentFragment();
-		if (typeof html == 'string') {
+		
+		if (html instanceof Node) {
+			return html;
+			frag.appendChild(html);
+		} else if (typeof html == 'string') {
 			div.innerHTML = html;
 			while (div.firstChild) {
 				frag.appendChild(div.firstChild);
@@ -229,12 +232,13 @@ simpli5.node.extend({
 		}
 	}
 });
-HTMLDocument.prototype.findFirst = HTMLDocument.prototype.querySelector;
 simpli5.element.extend({
 	find: function(selector) {
 		return new simpli5(selector, this);
 	},
-	findFirst: element.querySelector,
+	findFirst: function(selector) {
+		return this.querySelector(selector);
+	},
 	matches: (element.webkitMatchesSelector || element.mozMatchesSelector),
 	addClass: function(className) {
 		var classes = this.className.split(spaceExpr);
@@ -384,8 +388,9 @@ simpli5.element.extend({
 		return nodes;
 	},
 	append: function(html) {
+		if (!html || (html.hasOwnProperty('length') && !html.length)) return;
 		var frag = simpli5.fragment(html);
-		var nodes = simpli5.toArray(frag.childeNodes);
+		var nodes = simpli5(frag.childNodes);
 		this.appendChild(frag);
 		return nodes;
 	},
@@ -401,12 +406,12 @@ simpli5.element.extend({
 		this.insertBefore(frag, this.firstChild);
 		return nodes;
 	},
-	data: function(name, value) {
+	dataStore: function(name, value) {
 		if (value === undefined) {
 			if ('_data' in this) return this._data[name];
 		} else {
 			if ( !('_data' in this)) this._data = {};
-			return this._data[name];
+			this._data[name] = value;
 		}
 	},
 	outerWidth: function(value) {
@@ -449,7 +454,7 @@ simpli5.element.extend({
 		if (value === undefined) {
 			var rect = this.getBoundingClientRect();
 			// allowing returned object to be modified
-			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height};
+			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom};
 		} else {
 			// figure out the top/left offset
 			var rect = this.getBoundingClientRect();
@@ -457,12 +462,25 @@ simpli5.element.extend({
 			var topOffset = this.offsetTop - rect.top;
 			if ('left' in value) this.css('left', value.left + leftOffset);
 			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
+			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
 		}
+	},
+	show: function() {
+		this.css('display', '');
+	},
+	hide: function() {
+		this.css('display', 'none');
+	},
+	visible: function() {
+		return this.rect().width != 0;
 	}
 });
 
+HTMLDocument.prototype.find = simpli5.element.find;
+HTMLDocument.prototype.findFirst = simpli5.element.findFirst;
 
 simpli5.map({
 	matches: 'every',
@@ -482,7 +500,7 @@ simpli5.map({
 	append: 'merge',
 	before: 'merge',
 	prepend: 'merge',
-	data: 'getterSetter',
+	dataStore: 'getterSetter',
 	width: 'getterSetter',
 	height: 'getterSetter',
 	outerWidth: 'getterSetter',
