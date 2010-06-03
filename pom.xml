@@ -45,14 +45,14 @@
 							<jsSourceDir>./</jsSourceDir>
 							<jsFinalFile>simpli5.js</jsFinalFile>
 							<jsSourceFiles>
-								<param>Core.js</param>
-								<param>Function.js</param>
-								<param>Class.js</param>
-								<param>Event.js</param>
-								<param>Binding.js</param>
-								<param>Template.js</param>
-								<param>Component.js</param>
-								<param>Storage.js</param>
+								<param>core.js</param>
+								<param>function.js</param>
+								<param>class.js</param>
+								<param>event.js</param>
+								<param>binding.js</param>
+								<param>template.js</param>
+								<param>component.js</param>
+								<param>storage.js</param>
 							</jsSourceFiles>
 						</configuration>
 						<goals>
