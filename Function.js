@@ -38,21 +38,21 @@ Function.prototype.running = function() {
 };
 
 // returns a new function which is throttled from being called too frequently
-Function.prototype.throttle = function(delay, obj) {
+Function.prototype.throttle = function(delay) {
 	var method = this;
 	var closure = function() {
 		if (closure.throttled) {
-			closure.pending = true;
+			closure.pending = arguments;
 			return closure.throttled;
 		}
 		closure.throttled = setTimeout(function() {
 			delete closure.throttled;
 			if (closure.pending) {
+				closure.apply(null, closure.pending);
 				delete closure.pending;
-				closure.call(delay, obj);
 			}
 		}, delay);
-		return method.apply(obj, arguments);
+		return method.apply(null, arguments);
 	}
 	return closure;
 };
