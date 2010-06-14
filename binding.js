@@ -98,7 +98,7 @@ PropertyChange = {
 				value = getter.call(obj);
 				PropertyChange.dispatch(obj, property, oldValue, value);
 			});
-		} else {
+		} else if (!getter) { // if read-only don't change, dev's job to dispatch the change
 			var prop = obj[property];
 			obj.__defineGetter__(property, function() { return prop; });
 			obj.__defineSetter__(property, function(value) {
