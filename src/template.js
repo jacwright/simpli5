@@ -71,12 +71,12 @@ var Template = new Class({
 	
 	create: function(data) {
 		var html = this.apply(data);
-		return simpli5.fragment(html).firstChild;
+		return toFragment(html).firstChild;
 	},
 	
 	// creates the template binding all {data.*} expressions to the top-level element
 	createBound: function(data) {
-		var topElement = simpli5.fragment(this.html).firstChild;
+		var topElement = toFragment(this.html).firstChild;
 		data = data || {};
 		
 		// if there are no binding expressions, just return the html

@@ -1,144 +1,40 @@
-(function() {
-	
-var window = this, undefined,
-		spaceExpr = /\s+/, dashExpr = /([A-Z])/g, htmlExpr = /^[^<]*(<(.|\s)+>)[^>]*$/, numCSSExpr = /z-?index|font-?weight|opacity|zoom|line-?height/i,
-		div = document.createElement('div'),
-		array = Array.prototype, element = HTMLElement.prototype;
 
-/**
- * Returns an instance of simpli5
- * @param [selector]
- * @param [context]
- */
-var simpli5 = function(selector, context) {
-	// allow to be called as a function or created as an object
-	if (this instanceof simpli5 && !this.inited) {
-		return this.init(selector, context);
-	} else {
-		return new simpli5(selector, context);
+function forEach(iterable, func) {
+	Array.prototype.forEach.call(iterable, func);
+}
+
+function toArray(iterable) {
+	if (iterable instanceof Array) return iterable;
+	var arr = Array.prototype.slice.call(iterable);
+	if (!arr.length && iterable != null && !('length' in iterable)) return [iterable];
+	return arr;
+}
+
+function extend(obj, extension, excludeInherited) {
+	if (arguments.length == 1) {
+		obj = this;
+		extension = obj;
 	}
-};
-window.simpli5 = simpli5;
-if ( !('$' in window)) window.$ = simpli5;
-
-simpli5.fn = simpli5.prototype = {
-	constructor: simpli5,
-	concat: function(args) {
-		return new simpli5(array.concat.apply(this, arguments), this.context);
-	},
-	every: array.every,
-	filter: function(func, thisObj) {
-		return new simpli5(array.filter.call(this, func, thisObj), this.context);
-	},
-	forEach: array.forEach,
-	indexOf: array.indexOf,
-	join: array.join,
-	lastIndexOf: array.lastIndexOf,
-	map: function(func, thisObj) {
-		return new simpli5(array.map.call(this, func, thisObj), this.context);
-	},
-	pop: array.pop,
-	push: array.push,
-	reduce: array.reduce,
-	reduceRight: array.reduceRight,
-	reverse: array.reverse,
-	shift: array.shift,
-	slice: function(start, end) {
-		return new simpli5(array.slice.call(this, start, end), this.context);
-	},
-	some: array.some,
-	sort: array.sort,
-	splice: function(startIndex, howMany, args) {
-		return new simpli5(array.splice.apply(this, arguments), this.context);
-	},
-	unshift: array.unshift,
-	
-	init: function(selector, context) {
-		var elems;
-		this.context = context || document;
-		this.inited = true;
+	for (var i in extension) {
+		if (excludeInherited && !extension.hasOwnProperty(i)) continue;
 		
-		// Handle an empty list
-		if (!selector) {
-			return;
-		// Handle $(DOMElement)
-		} else if (selector.nodeType) {
-			this.push(selector);
-			this.context = selector;
-		// HANDLE: $(selector)
-		} else if (typeof selector === "string") {
-			this.merge(this.context.querySelectorAll(selector));
-		// HANDLE: $(function) -- Shortcut for document ready
-		} else if (selector instanceof Function) {
-			return simpli5.onReady(selector);
+		var getter = extension.__lookupGetter__(i), setter = extension.__lookupSetter__(i);
+		if (getter || setter) {
+			if (getter) obj.__defineGetter__(i, getter);
+			if (setter) obj.__defineSetter__(i, setter);
 		} else {
-			this.merge(selector);
+			obj[i] = extension[i];
 		}
-	},
-	
-	extend: function(extension) {
-		var thisObj = this;
-		if (arguments.length == 2) {
-			thisObj = arguments[0];
-			extension = arguments[1];
-		}
-		for (var i in extension) {
-			thisObj[i] = extension[i];
-		}
-	},
-	
-	merge: function(elems) {
-		if (elems == null) return;
-		if ( !(elems instanceof Array) && ('length' in elems)) {
-			elems = simpli5.toArray(elems);
-		}
-		if (elems instanceof Array) {
-			this.push.apply(this, elems);
-		} else {
-			this.push(elems);
-		}
-	},
-	
-	find: function(selector) {
-		var results = new simpli5();
-		this.forEach(function(elem) {
-			results.merge(elem.querySelectorAll(selector));
-		});
-	},
-	
-	toString: function() {
-		return 'simpli5: [' + this.join(',') + ']';
 	}
-};
+}
 
-simpli5.extend = simpli5.prototype.extend;
-simpli5.node = Node.prototype;
-simpli5.node.extend = simpli5.extend;
-simpli5.element = element;
-simpli5.element.extend = simpli5.extend;
-
-simpli5.extend({
+var toFragment = (function() {
+	var div = document.createElement('div');
 	
-	onReady: function(listener) {
-		document.on('DOMContentLoaded', listener);
-	},
-	
-	forEach: function(iterable, func) {
-		array.forEach.call(iterable, func);
-	},
-	
-	toArray: function(iterable) {
-		if (iterable instanceof Array) return iterable;
-		var arr = array.slice.call(iterable);
-		if (!arr.length && iterable != null && !('length' in iterable)) return [iterable];
-		return arr;
-	},
-	
-	fragment: function(html) {
+	function toFragment(html) {
 		var frag = document.createDocumentFragment();
 		
 		if (html instanceof Node) {
-			return html;
 			frag.appendChild(html);
 		} else if (typeof html == 'string') {
 			div.innerHTML = html;
@@ -151,365 +47,72 @@ simpli5.extend({
 			}
 		}
 		return frag;
-	},
+	}
 	
-	html: function(html) {
-		return this.fragment(html).firstChild;
-	},
-	
-	map: function(mapping) {
-		var map = simpli5.map, fn = simpli5.fn, element = simpli5.element, node = simpli5.node;
-		for (var i in mapping) {
-			var type = mapping[i];
-			simpli5.fn[i] = map[type](element[i] || node[i]);
-		}
-	}
-});
-
-simpli5.extend(simpli5.map, {
-	some: function(func) {
-		return function() {
-			var args = arguments;
-			return this.some(function(element) {
-				return func.apply(element, args);
-			});
-		};
-	},
-	every: function(func) {
-		return function() {
-			var args = arguments;
-			return this.every(function(element) {
-				return func.apply(element, args);
-			});
-		};
-	},
-	forEach: function(func) {
-		return function() {
-			var args = arguments;
-			this.forEach(function(element) {
-				func.apply(element, args);
-			});
-			return this;
-		};
-	},
-	merge: function(func) {
-		return function() {
-			var args = arguments;
-			var results = new simpli5();
-			this.forEach(function(element) {
-				results.merge(func.apply(element, args));
-			});
-			return results;
-		};
-	},
-	getterSetter: function(func) {
-		return function() {
-			var args = arguments;
-			if (args.length == 1) {
-				return this.length ? func.call(this[0], args[0]) : undefined;
-			}
-			this.forEach(function(element) {
-				func.apply(element, args);
-			});
-			return this;
-		};
-	},
-	returnFirst: function(func) {
-		return function() {
-			return func.apply(this[0], arguments);
-		};
-	}
-});
-
-
-// DOM Extensions
-simpli5.node.extend({
-	parent: function(selector) {
-		var node = this.parentNode;
-		while (node) {
-			if (node.matches(selector)) return node;
-			node = node.parentNode;
-		}
-	}
-});
-simpli5.element.extend({
-	find: function(selector) {
-		return new simpli5(selector, this);
-	},
-	findFirst: function(selector) {
-		return this.querySelector(selector);
-	},
-	matches: (element.webkitMatchesSelector || element.mozMatchesSelector),
-	addClass: function(className) {
-		var classes = this.className.split(spaceExpr);
-		if (classes.indexOf(className) == -1) {
-			classes.push(className);
-			this.className = classes.join(' ');
-		}
-		return this;
-	},
-	removeClass: function(className) {
-		var classes = this.className.split(spaceExpr);
-		var index = classes.indexOf(className);
-		if (index != -1) classes.splice(index, 1);
-		if (classes.length == 0) this.removeAttr('class');
-		else this.className = classes.join(' ');
-		return this;
-	},
-	hasClass: function(className) {
-		return this.className.split(spaceExpr).indexOf(className) != -1;
-	},
-	toggleClass: function(className) {
-		if (this.hasClass(className)) this.removeClass(className);
-		else this.addClass(className);
-		return this;
-	},
-	attr: function(name, value) {
-		if (typeof name == 'object') {
-			for (var i in name) {
-				this.setAttribute([i], name[i]);
-			}
-		} else if (value !== undefined) {
-			this.setAttribute(name, value);
-			return this;
-		} else {
-			return this.getAttribute(name);
-		}
-	},
-	css: function(name, value) {
-		if (typeof name == 'object') {
-			for (var i in name) {
-				this.css(i, name[i]);
-			}
-		} else if (value !== undefined) {
-			if (typeof value == 'number' && !numCSSExpr.test(name)) {
-				value += 'px';
-			}
-			this.style[name] = value;
-			return this;
-		} else {
-			value = this.style[name];
-			if (!value) {
-				name = name.replace(dashExpr, "-$1").toLowerCase();
-				var computedStyle = window.getComputedStyle(this, null);
-				value = computedStyle.getPropertyValue(name);
-			}
-			return value;
-		}
-	},
-	removeAttr: function(name) {
-		this.removeAttribute(name);
-		return this;
-	},
-	make: function(classType) {
-		this.__proto__ = classType.prototype || classType.__proto__;
-		var args = simpli5.toArray(arguments);
-		args.shift();
-		if ('init' in this) this.init.apply(this, args);
-		return this;
-	},
-	html: function(value) {
-		if (value === undefined) {
-			return this.innerHTML;
-		} else if (typeof value == 'string') {
-			this.innerHTML = value;
-		} else {
-			var element = this;
-			this.innerHTML = '';
-			value = simpli5.toArray(value);
-			simpli5.forEach(value, function(node) {
-				element.append(node);
-			});
-		}
-		return this;
-	},
-	text: function(value) {
-		if (value === undefined) {
-			return this.innerText;
-		} else {
-			this.innerText = value;
-		}
-		return this;
-	},
-	cleanWhitespace: function() {
-		var node = this.firstChild;
-		while (node) {
-			var curNode = node;
-			node = node.nextSibling;
-			if (curNode.nodeType == 3) {
-				this.removeChild(curNode);
-			}
-		}
-	},
-	val: function(value) {
-		if (value === undefined) {
-			if (this.nodeName == 'SELECT' && this.type == 'select-multiple') {
-				var i = this.selectedIndex, values = [], options = this.options;
-				if (i == -1) return values;
-				
-				// Loop through all the selected options
-				for (var l = options.length; i < l; i++) {
-					var option = options[i];
-					if (option.selected) {
-						values.push(option.value);
-					}
-				}
-				
-				return values;				
-			}
-			return (this.value || '').replace(/\r/g, '');
-		}
-		
-		if (typeof value === "number") value += '';
-		
-		if (value instanceof Array && this.type == 'radio' || this.type == 'checkbox') {
-			this.checked = value.indexOf(this.value) != -1;
-		} else if (this.nodeName == 'SELECT') {
-			if (value) {
-				var values = value instanceof Array ? value : [value], options = this.options;
-				
-				for (var i = 0, l = options.length; i < l; i++) {
-					var option = options[i];
-					if (values.indexOf(option.value) != -1) {
-						option.selected = true;
-					}
-				}
-			} else {
-				this.selectedIndex = -1;
-			}
-		} else {
-			this.value = value;
-		}
-	},
-	after: function(html) {
-		var frag = simpli5.fragment(html);
-		var nodes = simpli5.toArray(frag.childeNodes);
-		this.parentNode.insertBefore(frag, this.nextSibling);
-		return nodes;
-	},
-	append: function(html) {
-		if (!html || (html.hasOwnProperty('length') && !html.length)) return;
-		var frag = simpli5.fragment(html);
-		var nodes = simpli5(frag.childNodes);
-		this.appendChild(frag);
-		return nodes;
-	},
-	before: function(html) {
-		var frag = simpli5.fragment(html);
-		var nodes = simpli5.toArray(frag.childeNodes);
-		this.parentNode.insertBefore(frag, this);
-		return nodes;
-	},
-	prepend: function(html) {
-		var frag = simpli5.fragment(html);
-		var nodes = simpli5.toArray(frag.childeNodes);
-		this.insertBefore(frag, this.firstChild);
-		return nodes;
-	},
-	dataStore: function(name, value) {
-		if (value === undefined) {
-			if ('_data' in this) return this._data[name];
-		} else {
-			if ( !('_data' in this)) this._data = {};
-			this._data[name] = value;
-		}
-	},
-	outerWidth: function(value) {
-		if (value === undefined) {
-			return this.offsetWidth;
-		} else {
-			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
-			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
-			this.css('width', Math.max(value - padding - border, 0));
-		}
-	},
-	outerHeight: function(value) {
-		if (value === undefined) {
-			return this.offsetHeight;
-		} else {
-			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
-			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
-			this.css('height', Math.max(value - padding - border, 0));
-		}
-	},
-	width: function(value) {
-		if (value === undefined) {
-			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
-			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
-			return this.offsetWidth - padding - border;
-		} else {
-			this.css('width', Math.max(value, 0));
-		}
-	},
-	height: function(value) {
-		if (value === undefined) {
-			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
-			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
-			return this.offsetHeight - padding - border;
-		} else {
-			this.css('height', Math.max(value, 0));
-		}
-	},
-	rect: function(value) {
-		if (value === undefined) {
-			var rect = this.getBoundingClientRect();
-			// allowing returned object to be modified
-			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom};
-		} else {
-			// figure out the top/left offset
-			var rect = this.getBoundingClientRect();
-			var leftOffset = this.offsetLeft - rect.left;
-			var topOffset = this.offsetTop - rect.top;
-			if ('left' in value) this.css('left', value.left + leftOffset);
-			if ('top' in value) this.css('top', value.top + topOffset);
-			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
-			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
-			if ('width' in value) this.outerWidth(value.width);
-			if ('height' in value) this.outerHeight(value.height);
-		}
-	},
-	show: function() {
-		this.css('display', '');
-	},
-	hide: function() {
-		this.css('display', 'none');
-	},
-	visible: function() {
-		return this.rect().width != 0;
-	}
-});
-
-HTMLDocument.prototype.find = simpli5.element.find;
-HTMLDocument.prototype.findFirst = simpli5.element.findFirst;
-
-simpli5.map({
-	matches: 'every',
-	addClass: 'forEach',
-	removeClass: 'forEach',
-	hasClass: 'some',
-	toggleClass: 'forEach',
-	attr: 'getterSetter',
-	removeAttr: 'forEach',
-	css: 'getterSetter',
-	make: 'forEach',
-	html: 'getterSetter',
-	text: 'getterSetter',
-	val: 'getterSetter',
-	cleanWhitespace: 'forEach',
-	after: 'merge',
-	append: 'merge',
-	before: 'merge',
-	prepend: 'merge',
-	dataStore: 'getterSetter',
-	width: 'getterSetter',
-	height: 'getterSetter',
-	outerWidth: 'getterSetter',
-	outerHeight: 'getterSetter',
-	rect: 'getterSetter'
-});
-
+	return toFragment;
 })();
-/**
+
+
+function toElement(html) {
+	return this.fragment(html).firstChild;
+}/**
+ * 
+ * @param implementation
+ * @param [constructor] private
+ */
+function Class(implementation, constructor) {
+	// create the constructor, init will be the effective constructor
+	constructor = constructor || function() {
+		if (this.init) return this.init.apply(this, arguments);
+	};
+	
+	if (implementation) {
+		
+		if (implementation.extend) {
+			Class.subclass.prototype = implementation.extend.prototype;
+			constructor.prototype = new Class.subclass();
+			delete implementation.extend;
+		}
+		
+		if (implementation.implement) {
+			var impl = implementation.implement instanceof Array ? implementation.implement : [implementation.implement];
+			for (var i = 0, l = impl.length; i < l; i++) {
+				Class.implement(constructor, impl[i]);
+			}
+			delete implementation.implement;
+		}
+		// Copy the properties over onto the new prototype
+		Class.mixin(constructor, implementation);
+	}
+	constructor.prototype.constructor = constructor;
+	return constructor;
+}
+
+extend(Class, {
+	subclass: function() {},
+	implement: function(classObj, implClassObj) {
+		Class.mixin(classObj, implClassObj.prototype, true);
+	},
+	mixin: function(classObj, methods, excludeInherited) {
+		extend(classObj.prototype, methods, excludeInherited);
+	},
+	make: function(instance, classType, skipInit) {
+		instance.__proto__ = classType.prototype;
+		var args = toArray(arguments);
+		args.splice(0, 3);
+		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
+	},
+	insert: function(instance, classType) {
+		var proto = {};
+		for (var i in classType.prototype) {
+			if (classType.prototype.hasOwnProperty(i)) {
+				proto[i] = classType.prototype[i];
+			}
+		}
+		proto.__proto__ = instance.__proto__;
+		instance.__proto__ = proto;
+	}
+});/**
  * Bind a function to run in the scope of obj (i.e. "this" will equal obj) 
  * @param obj
  * @param * additional arguments will be added to the call
@@ -566,92 +169,398 @@ Function.prototype.throttle = function(delay) {
 		return method.apply(null, arguments);
 	}
 	return closure;
-};/**
- * 
- * @param implementation
- * @param [constructor] private
- */
-function Class(implementation, constructor) {
-	// create the constructor, init will be the effective constructor
-	constructor = constructor || function() {
-		if (this.init) return this.init.apply(this, arguments);
-	};
+};var ElementArray = new Class({
+	extend: Array,
 	
-	if (implementation) {
-		
-		if (implementation.extend) {
-			Class.subclass.prototype = implementation.extend.prototype;
-			constructor.prototype = new Class.subclass();
-			delete implementation.extend;
+	init: function(selector) {
+		if (!selector) {
+			return;
+		} else if (selector.nodeType) {
+			this.push(selector);
+		} else if (typeof selector === "string") {
+			this.merge(this.context.querySelectorAll(selector));
+		} else {
+			this.merge(selector);
 		}
-		
-		if (implementation.implement) {
-			var impl = implementation.implement instanceof Array ? implementation.implement : [implementation.implement];
-			for (var i = 0, l = impl.length; i < l; i++) {
-				Class.implement(constructor, impl[i]);
-			}
-			delete implementation.implement;
+	},
+	
+	concat: function(args) {
+		return Class.make(Array.prototype.concat.apply(this, arguments), ElementArray);
+	},
+	filter: function(func, thisObj) {
+		return Class.make(Array.prototype.filter.call(this, func, thisObj), ElementArray);
+	},
+	map: function(func, thisObj) {
+		return Class.make(Array.prototype.map.call(this, func, thisObj), ElementArray);
+	},
+	slice: function(start, end) {
+		return Class.make(Array.prototype.slice.call(this, start, end), ElementArray);
+	},
+	splice: function(startIndex, howMany, args) {
+		return Class.make(Array.prototype.splice.apply(this, arguments), ElementArray);
+	},
+	
+	extend: function(extension) {
+		for (var i in extension) {
+			this[i] = extension[i];
 		}
-		// Copy the properties over onto the new prototype
-		Class.mixin(constructor, implementation);
+	},
+	
+	merge: function(elems) {
+		if (elems == null) return;
+		if ( !(elems instanceof Array) && ('length' in elems)) {
+			elems = toArray(elems);
+		} else {
+			elems = [elems];
+		}
+		this.push.apply(this, elems);
+	},
+	
+	toString: function() {
+		return 'ElementArray: [' + this.join(',') + ']';
 	}
-	constructor.prototype.constructor = constructor;
-	constructor.prototype.callSuper = Class.callSuper;
-	return constructor;
-}
+});
 
-simpli5.extend(Class, {
-	subclass: function() {},
-	callSuper: function(funcName) {
-		var curProto = this.__curProto__ || (this.__proto__[funcName] == this[funcName] ? this.__proto__ : this);
-		var proto = curProto.__proto__;
-		while (proto && !proto.hasOwnProperty(funcName)) {
-			proto = proto.__proto__;
+extend(ElementArray, {
+	
+	map: function(mapping) {
+		var map = ElementArray.map, elementArray = ElementArray.prototype, element = HTMLElement.prototype, node = Node.prototype;
+		for (var i in mapping) {
+			var type = mapping[i];
+			elementArray[i] = map[type](element[i] || node[i]);
 		}
-		if (!proto) {
-			throw 'There is no super method "' + funcName + '" for ' + this;
-		}
-		this.__curProto__ = proto;
-		var args = simpli5.toArray(arguments).slice(1);
-		var func = proto.__lookupSetter__(funcName) || proto[funcName];
-		var result = func.apply(this, args);
-		this.__curProto__ = curProto;
-		return result;
-	},
-	implement: function(classObj, implClassObj) {
-		Class.mixin(classObj, implClassObj.prototype, true);
-	},
-	mixin: function(classObj, methods, includeInherited) {
-		for (var i in methods) {
-			if (!includeInherited && !methods.hasOwnProperty(i)) continue;
-			
-			// handle getters/setters correctly
-			var getter = methods.__lookupGetter__(i), setter = methods.__lookupSetter__(i);
-			
-			if (getter || setter) {
-				if (getter) classObj.prototype.__defineGetter__(i, getter);
-				if (setter) classObj.prototype.__defineSetter__(i, setter);
-			} else {
-				classObj.prototype[i] = methods[i];
-			}
-		}
-	},
-	make: function(instance, classType, skipInit) {
-		instance.__proto__ = classType.prototype;
-		var args = simpli5.toArray(arguments);
-		args.splice(0, 3);
-		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
-	},
-	insert: function(instance, classType) {
-		var proto = {};
-		for (var i in classType.prototype) {
-			if (classType.prototype.hasOwnProperty(i)) {
-				proto[i] = classType.prototype[i];
-			}
-		}
-		proto.__proto__ = instance.__proto__;
-		instance.__proto__ = proto;
 	}
+});
+
+
+extend(ElementArray.map, {
+	some: function(func) {
+		return function() {
+			var args = arguments;
+			return this.some(function(element) {
+				return func.apply(element, args);
+			});
+		};
+	},
+	every: function(func) {
+		return function() {
+			var args = arguments;
+			return this.every(function(element) {
+				return func.apply(element, args);
+			});
+		};
+	},
+	forEach: function(func) {
+		return function() {
+			var args = arguments;
+			this.forEach(function(element) {
+				func.apply(element, args);
+			});
+			return this;
+		};
+	},
+	merge: function(func) {
+		return function() {
+			var args = arguments;
+			var results = new simpli5();
+			this.forEach(function(element) {
+				results.merge(func.apply(element, args));
+			});
+			return results;
+		};
+	},
+	getterSetter: function(func) {
+		return function() {
+			var args = arguments;
+			if (args.length == 1) {
+				return this.length ? func.call(this[0], args[0]) : undefined;
+			}
+			this.forEach(function(element) {
+				func.apply(element, args);
+			});
+			return this;
+		};
+	},
+	returnFirst: function(func) {
+		return function() {
+			return func.apply(this[0], arguments);
+		};
+	}
+});(function() {
+	
+var spaceExpr = /\s+/, dashExpr = /([A-Z])/g, htmlExpr = /^[^<]*(<(.|\s)+>)[^>]*$/, numCSSExpr = /z-?index|font-?weight|opacity|zoom|line-?height/i;
+
+extend(HTMLElement.prototype, {
+	addClass: function(className) {
+		var classes = this.className.split(spaceExpr);
+		if (classes[0] == '') classes.pop();
+		if (classes.indexOf(className) == -1) {
+			classes.push(className);
+			this.className = classes.join(' ');
+		}
+		return this;
+	},
+	removeClass: function(className) {
+		var classes = this.className.split(spaceExpr);
+		var index = classes.indexOf(className);
+		if (index != -1) classes.splice(index, 1);
+		if (classes.length == 0) this.removeAttr('class');
+		else this.className = classes.join(' ');
+		return this;
+	},
+	hasClass: function(className) {
+		return this.className.split(spaceExpr).indexOf(className) != -1;
+	},
+	toggleClass: function(className) {
+		if (this.hasClass(className)) this.removeClass(className);
+		else this.addClass(className);
+		return this;
+	},
+	attr: function(name, value) {
+		if (typeof name == 'object') {
+			for (var i in name) {
+				this.setAttribute(i, name[i]);
+			}
+		} else if (value !== undefined) {
+			this.setAttribute(name, value);
+			return this;
+		} else {
+			return this.getAttribute(name);
+		}
+	},
+	css: function(name, value) {
+		if (typeof name == 'object') {
+			for (var i in name) {
+				this.css(i, name[i]);
+			}
+		} else if (value !== undefined) {
+			if (typeof value == 'number' && !numCSSExpr.test(name)) {
+				value += 'px';
+			}
+			this.style[name] = value;
+			return this;
+		} else {
+			value = this.style[name];
+			if (!value) {
+				name = name.replace(dashExpr, "-$1").toLowerCase();
+				var computedStyle = window.getComputedStyle(this, null);
+				value = computedStyle.getPropertyValue(name);
+			}
+			return value;
+		}
+	},
+	removeAttr: function(name) {
+		this.removeAttribute(name);
+		return this;
+	},
+	make: function(classType) {
+		Class.make(this, classType);
+		return this;
+	},
+	html: function(value) {
+		if (value === undefined) {
+			return this.innerHTML;
+		} else if (typeof value == 'string') {
+			this.innerHTML = value;
+		} else {
+			var element = this;
+			this.innerHTML = '';
+			value = toArray(value);
+			forEach(value, function(node) {
+				element.append(node);
+			});
+		}
+		return this;
+	},
+	text: function(value) {
+		if (value === undefined) {
+			return this.innerText;
+		} else {
+			this.innerText = value;
+		}
+		return this;
+	},
+	val: function(value) {
+		var i, l, option;
+		if (value === undefined) {
+			if (this.nodeName == 'SELECT' && this.type == 'select-multiple') {
+				i = this.selectedIndex, values = [], options = this.options;
+				if (i == -1) return values;
+				
+				// Loop through all the selected options
+				for (l = options.length; i < l; i++) {
+					option = options[i];
+					if (option.selected) {
+						values.push(option.value);
+					}
+				}
+				
+				return values;				
+			}
+			return (this.value || '').replace(/\r/g, '');
+		}
+		
+		if (typeof value === "number") value += '';
+		
+		if (value instanceof Array && this.type == 'radio' || this.type == 'checkbox') {
+			this.checked = value.indexOf(this.value) != -1;
+		} else if (this.nodeName == 'SELECT') {
+			if (value) {
+				var values = value instanceof Array ? value : [value], options = this.options;
+				
+				for (i = 0, l = options.length; i < l; i++) {
+					option = options[i];
+					if (values.indexOf(option.value) != -1) {
+						option.selected = true;
+					}
+				}
+			} else {
+				this.selectedIndex = -1;
+			}
+		} else {
+			this.value = value;
+		}
+	},
+	show: function() {
+		this.css('display', '');
+	},
+	hide: function() {
+		this.css('display', 'none');
+	},
+	visible: function() {
+		return this.rect().width != 0;
+	}
+});
+
+
+ElementArray.map({
+	addClass: 'forEach',
+	removeClass: 'forEach',
+	hasClass: 'some',
+	toggleClass: 'forEach',
+	attr: 'getterSetter',
+	removeAttr: 'forEach',
+	css: 'getterSetter',
+	make: 'forEach',
+	html: 'getterSetter',
+	text: 'getterSetter',
+	val: 'getterSetter',
+	show: 'forEach',
+	hide: 'forEach',
+	visible: 'some'
+});
+
+})();
+extend(HTMLElement.prototype, {
+	width: function(value) {
+		if (value === undefined) {
+			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
+			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
+			return this.offsetWidth - padding - border;
+		} else {
+			this.css('width', Math.max(value, 0));
+		}
+	},
+	height: function(value) {
+		if (value === undefined) {
+			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
+			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
+			return this.offsetHeight - padding - border;
+		} else {
+			this.css('height', Math.max(value, 0));
+		}
+	},
+	outerWidth: function(value) {
+		if (value === undefined) {
+			return this.offsetWidth;
+		} else {
+			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
+			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
+			this.css('width', Math.max(value - padding - border, 0));
+		}
+	},
+	outerHeight: function(value) {
+		if (value === undefined) {
+			return this.offsetHeight;
+		} else {
+			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
+			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
+			this.css('height', Math.max(value - padding - border, 0));
+		}
+	},
+	rect: function(value) {
+		var rect;
+		if (value === undefined) {
+			rect = this.getBoundingClientRect();
+			// allowing returned object to be modified
+			return {left: rect.left, top: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom};
+		} else {
+			// figure out the top/left offset
+			rect = this.getBoundingClientRect();
+			var leftOffset = this.offsetLeft - rect.left;
+			var topOffset = this.offsetTop - rect.top;
+			if ('left' in value) this.css('left', value.left + leftOffset);
+			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
+			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
+			if ('width' in value) this.outerWidth(value.width);
+			if ('height' in value) this.outerHeight(value.height);
+		}
+	}
+});
+
+
+ElementArray.map({
+	width: 'getterSetter',
+	height: 'getterSetter',
+	outerWidth: 'getterSetter',
+	outerHeight: 'getterSetter',
+	rect: 'getterSetter'
+});extend(HTMLElement.prototype, {
+	cleanWhitespace: function() {
+		var node = this.firstChild;
+		while (node) {
+			var curNode = node;
+			node = node.nextSibling;
+			if (curNode.nodeType == 3) {
+				this.removeChild(curNode);
+			}
+		}
+	},
+	after: function(html) {
+		var frag = toFragment(html);
+		var nodes = toArray(frag.childeNodes);
+		this.parentNode.insertBefore(frag, this.nextSibling);
+		return nodes;
+	},
+	append: function(html) {
+		if (!html || (html.hasOwnProperty('length') && !html.length)) return;
+		var frag = toFragment(html);
+		var nodes = new ElementArray(frag.childNodes);
+		this.appendChild(frag);
+		return nodes;
+	},
+	before: function(html) {
+		var frag = toFragment(html);
+		var nodes = toArray(frag.childeNodes);
+		this.parentNode.insertBefore(frag, this);
+		return nodes;
+	},
+	prepend: function(html) {
+		var frag = toFragment(html);
+		var nodes = toArray(frag.childeNodes);
+		this.insertBefore(frag, this.firstChild);
+		return nodes;
+	}
+});
+
+
+ElementArray.map({
+	cleanWhitespace: 'forEach',
+	after: 'merge',
+	append: 'merge',
+	before: 'merge',
+	prepend: 'merge'
 });var CustomEvent = new Class({
 	extend: Event,
 	init: function(type, bubbles, cancelable) {
@@ -705,7 +614,7 @@ var EventDispatcher = new Class({
 			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
 				listeners = listeners.split(/\s*,\s*/);
 			} else {
-				listeners = simpli5.toArray(arguments);
+				listeners = toArray(arguments);
 			}
 		} 
 		for (var i = 0, l = listeners.length; i < l; i++) {
@@ -745,7 +654,7 @@ var EventDispatcher = new Class({
 	}
 });
 
-simpli5.extend(EventDispatcher.prototype, {
+extend(EventDispatcher.prototype, {
 	on: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
 		//console.log(listener, typeof listener, listener instanceof NodeList);
@@ -769,17 +678,17 @@ simpli5.extend(EventDispatcher.prototype, {
 	}
 });
 
-simpli5.node.extend({
+extend(Node.prototype, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un,
 	createClosures: EventDispatcher.prototype.createClosures
 });
-simpli5.extend(window, {
+extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
 });
 
-simpli5.map({
+ElementArray.map({
 	on: 'forEach',
 	un: 'forEach'
 });
@@ -883,7 +792,7 @@ PropertyChange = {
 				value = getter.call(obj);
 				PropertyChange.dispatch(obj, property, oldValue, value);
 			});
-		} else {
+		} else if (!getter) { // if read-only don't change, dev's job to dispatch the change
 			var prop = obj[property];
 			obj.__defineGetter__(property, function() { return prop; });
 			obj.__defineSetter__(property, function(value) {
@@ -1245,12 +1154,12 @@ var Template = new Class({
 	
 	create: function(data) {
 		var html = this.apply(data);
-		return simpli5.fragment(html).firstChild;
+		return toFragment(html).firstChild;
 	},
 	
 	// creates the template binding all {data.*} expressions to the top-level element
 	createBound: function(data) {
-		var topElement = simpli5.fragment(this.html).firstChild;
+		var topElement = toFragment(this.html).firstChild;
 		data = data || {};
 		
 		// if there are no binding expressions, just return the html
@@ -1418,7 +1327,7 @@ Storage.prototype.set = function(key, value) {
     this.setItem(key, JSON.stringify(value));
 }
 
-simpli5.extend(Storage, {
+extend(Storage, {
 	
 	get: function(key, defaultValue) {
 		if (key in sessionStorage) {

@@ -7,7 +7,7 @@ Storage.prototype.set = function(key, value) {
     this.setItem(key, JSON.stringify(value));
 }
 
-simpli5.extend(Storage, {
+extend(Storage, {
 	
 	get: function(key, defaultValue) {
 		if (key in sessionStorage) {

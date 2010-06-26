@@ -51,7 +51,7 @@ var EventDispatcher = new Class({
 			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
 				listeners = listeners.split(/\s*,\s*/);
 			} else {
-				listeners = simpli5.toArray(arguments);
+				listeners = toArray(arguments);
 			}
 		} 
 		for (var i = 0, l = listeners.length; i < l; i++) {
@@ -91,7 +91,7 @@ var EventDispatcher = new Class({
 	}
 });
 
-simpli5.extend(EventDispatcher.prototype, {
+extend(EventDispatcher.prototype, {
 	on: function(type, listener, capture) {
 		var types = type.split(/\s*,\s*/);
 		//console.log(listener, typeof listener, listener instanceof NodeList);
@@ -115,17 +115,17 @@ simpli5.extend(EventDispatcher.prototype, {
 	}
 });
 
-simpli5.node.extend({
+extend(Node.prototype, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un,
 	createClosures: EventDispatcher.prototype.createClosures
 });
-simpli5.extend(window, {
+extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
 });
 
-simpli5.map({
+ElementArray.map({
 	on: 'forEach',
 	un: 'forEach'
 });

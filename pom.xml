@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.jacwright.simpli5</groupId>
-	<artifactId>simpli5</artifactId>
+	<groupId>com.jacwright.molded</groupId>
+	<artifactId>molded</artifactId>
 	<packaging>pom</packaging>
 	<version>1.0-SNAPSHOT</version>
-	<name>Simpli5</name>
+	<name>Molded</name>
 	<url>http://jacwright.com/</url>
 	
 	<pluginRepositories>
@@ -32,22 +32,26 @@
 				<version>1.2</version>
 				<executions>
 					<execution>
-						<id>minify-simpli5</id>
+						<id>minify-molded</id>
 						<phase>process-resources</phase>
 						<configuration>
-							<webappSourceDir>${basedir}</webappSourceDir>
+							<webappSourceDir>${basedir}/src</webappSourceDir>
 							<webappTargetDir>${basedir}</webappTargetDir>
 							<cssSourceDir>css</cssSourceDir>
-							<cssFinalFile>simpli5.css</cssFinalFile>
+							<cssFinalFile>molded.css</cssFinalFile>
 							<cssSourceFiles>
 								<param>HoverMenu.css</param>
 							</cssSourceFiles>
 							<jsSourceDir>./</jsSourceDir>
-							<jsFinalFile>simpli5.js</jsFinalFile>
+							<jsFinalFile>molded.js</jsFinalFile>
 							<jsSourceFiles>
-								<param>core.js</param>
-								<param>function.js</param>
+								<param>utils.js</param>
 								<param>class.js</param>
+								<param>function.js</param>
+								<param>element-array.js</param>
+								<param>attributes.js</param>
+								<param>dimensions.js</param>
+								<param>manipulation.js</param>
 								<param>event.js</param>
 								<param>binding.js</param>
 								<param>template.js</param>
@@ -68,7 +72,7 @@
 				<version>0.1.8</version>
 				<executions>
 					<execution>
-						<id>run-simpli5-tests</id>
+						<id>run-molded-tests</id>
 						<phase>test</phase>
 						<goals>
 							<goal>test</goal>

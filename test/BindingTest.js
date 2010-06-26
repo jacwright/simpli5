@@ -111,31 +111,6 @@ TestCase('BindingTest', {
 		this.target = null;
 	},
 	
-	testBindingCreate: function() {
-		var binding = new Binding(this.source, 'age', this.target, 'friend.age');
-		assertSame('Binding was not created correctly', this.source, binding.source[0]);
-		assertSame('Binding was not created correctly', this.target, binding.target[0]);
-		assertSame('Binding was not created correctly', this.target.friend, binding.target[1]);
-		assertEquals('Binding was not created correctly', ['age'], binding.sourcePath);
-		assertEquals('Binding was not created correctly', ['friend', 'age'], binding.targetPath);
-	},
-	
-	testBindingUpdate: function() {
-		var binding = new Binding(this.source, 'age', this.target, 'friend.age');
-		assertEquals('Binding did not update', this.source.age, this.target.friend.age);
-		this.source.age = 100;
-		assertEquals('Binding did not update', this.source.age, this.target.friend.age);
-		this.target.age = 40;
-		assertEquals('Binding updated when it should not have', 100, this.source.age);
-	},
-	
-	testTwoWayBindingUpdate: function() {
-		var binding = new Binding(this.source, 'age', this.target, 'friend.age', true);
-		assertEquals('Binding did not update', this.source.age, this.target.friend.age);
-		this.target.friend.age = 100;
-		assertEquals('Binding did not update', this.target.friend.age, this.source.age);
-	},
-	
 	testBindProperty: function() {
 		Bind.property(this.source, 'age', this.target, 'friend.age', true);
 		assertEquals('Binding did not update', this.source.age, this.target.friend.age);
