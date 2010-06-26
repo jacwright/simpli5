@@ -3,14 +3,14 @@
  * @param implementation
  * @param [constructor] private
  */
-function Class(implementation, constructor) {
-	// create the constructor, init will be the effective constructor
-	constructor = constructor || function() {
-		if (this.init) return this.init.apply(this, arguments);
-	};
+function Class(implementation) {
+	// create the constructor if not provided
+	if (!implementation.hasOwnProperty('constructor')) {
+		implementation.constructor = function() {};
+	}
+	var constructor = implementation.constructor;
 	
 	if (implementation) {
-		
 		if (implementation.extend) {
 			Class.subclass.prototype = implementation.extend.prototype;
 			constructor.prototype = new Class.subclass();
@@ -27,23 +27,22 @@ function Class(implementation, constructor) {
 		// Copy the properties over onto the new prototype
 		Class.mixin(constructor, implementation);
 	}
-	constructor.prototype.constructor = constructor;
 	return constructor;
 }
 
 extend(Class, {
 	subclass: function() {},
 	implement: function(classObj, implClassObj) {
-		Class.mixin(classObj, implClassObj.prototype, true);
+		Class.mixin(classObj, implClassObj.prototype);
 	},
-	mixin: function(classObj, methods, excludeInherited) {
-		extend(classObj.prototype, methods, excludeInherited);
+	mixin: function(classObj, methods) {
+		extend(classObj.prototype, methods);
 	},
-	make: function(instance, classType, skipInit) {
+	makeClass: function(instance, classType, skipConstructor) {
 		instance.__proto__ = classType.prototype;
 		var args = toArray(arguments);
 		args.splice(0, 3);
-		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
+		if (!skipConstructor) classType.apply(instance, args);
 	},
 	insert: function(instance, classType) {
 		var proto = {};

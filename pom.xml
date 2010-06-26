@@ -49,14 +49,17 @@
 								<param>class.js</param>
 								<param>function.js</param>
 								<param>element-array.js</param>
+								<param>event.js</param>
+								<param>molded.js</param>
+								<param>traversal.js</param>
 								<param>attributes.js</param>
 								<param>dimensions.js</param>
 								<param>manipulation.js</param>
-								<param>event.js</param>
 								<param>binding.js</param>
 								<param>template.js</param>
 								<param>component.js</param>
 								<param>storage.js</param>
+								<param>cookie.js</param>
 							</jsSourceFiles>
 						</configuration>
 						<goals>

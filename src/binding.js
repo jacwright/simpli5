@@ -194,7 +194,7 @@ Bind = {
 
 var Binding = new Class({
 	
-	init: function(source, sourcePath, target, targetPath, twoWay) {
+	constructor: function(source, sourcePath, target, targetPath, twoWay) {
 		this.onChange = this.onChange.bind(this);
 		this.source = [];
 		this.target = [];
@@ -326,40 +326,35 @@ BindableArray = new Class({
 	implement: EventDispatcher,
 	
 	push: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice();
-		args.unshift('push');
-		var result = this.callSuper.apply(this, args);
+		var items = toArray(arguments);
+		var result = Array.prototype.push.apply(this, items);
 		this.dispatchEvent(new ArrayChangeEvent('add', this.length - items.length, this.length - 1, items));
 		return result;
 	},
 	
 	pop: function() {
-		var result = this.callSuper.call(this, 'pop');
+		var result = Array.prototype.pop.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('remove', this.length, this.length, [result]));
 		return result;
 	},
 	
 	shift: function() {
-		var result = this.callSuper.call(this, 'shift');
+		var result = Array.prototype.shift.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('remove', 0, 0, [result]));
 		return result;
 	},
 	
 	unshift: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice();
-		args.unshift('unshift');
-		var result = this.callSuper.apply(this, args);
+		var items = toArray(arguments);
+		var result = Array.prototype.unshift.apply(this, items);
 		this.dispatchEvent(new ArrayChangeEvent('add', 0, items.length, items));
 		return result;
 	},
 	
 	splice: function(index, howmany, element1) {
-		var args = $.toArray(arguments);
+		var args = toArray(arguments);
 		var items = args.slice(2);
-		args.unshift('splice');
-		var result = this.callSuper.apply(this, args);
+		var result = Array.prototype.splice.apply(this, args);
 		
 		if (howmany) {
 			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
@@ -371,16 +366,14 @@ BindableArray = new Class({
 	},
 	
 	sort: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice(2);
-		args.unshift('sort');
-		var result = this.callSuper.apply(this, args);
+		var args = toArray(arguments);
+		var result = Array.prototype.sort.apply(this, args);
 		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
 		return result;
 	},
 	
 	reverse: function() {
-		var result = this.callSuper('reverse');
+		var result = Array.prototype.reverse.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
 		return result;
 	}

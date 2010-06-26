@@ -10,14 +10,12 @@ function toArray(iterable) {
 	return arr;
 }
 
-function extend(obj, extension, excludeInherited) {
+function extend(obj, extension) {
 	if (arguments.length == 1) {
 		obj = this;
 		extension = obj;
 	}
 	for (var i in extension) {
-		if (excludeInherited && !extension.hasOwnProperty(i)) continue;
-		
 		var getter = extension.__lookupGetter__(i), setter = extension.__lookupSetter__(i);
 		if (getter || setter) {
 			if (getter) obj.__defineGetter__(i, getter);
@@ -54,20 +52,21 @@ var toFragment = (function() {
 
 
 function toElement(html) {
-	return this.fragment(html).firstChild;
-}/**
+	return toFragment(html).firstChild;
+}
+/**
  * 
  * @param implementation
  * @param [constructor] private
  */
-function Class(implementation, constructor) {
-	// create the constructor, init will be the effective constructor
-	constructor = constructor || function() {
-		if (this.init) return this.init.apply(this, arguments);
-	};
+function Class(implementation) {
+	// create the constructor if not provided
+	if (!implementation.hasOwnProperty('constructor')) {
+		implementation.constructor = function() {};
+	}
+	var constructor = implementation.constructor;
 	
 	if (implementation) {
-		
 		if (implementation.extend) {
 			Class.subclass.prototype = implementation.extend.prototype;
 			constructor.prototype = new Class.subclass();
@@ -84,23 +83,22 @@ function Class(implementation, constructor) {
 		// Copy the properties over onto the new prototype
 		Class.mixin(constructor, implementation);
 	}
-	constructor.prototype.constructor = constructor;
 	return constructor;
 }
 
 extend(Class, {
 	subclass: function() {},
 	implement: function(classObj, implClassObj) {
-		Class.mixin(classObj, implClassObj.prototype, true);
+		Class.mixin(classObj, implClassObj.prototype);
 	},
-	mixin: function(classObj, methods, excludeInherited) {
-		extend(classObj.prototype, methods, excludeInherited);
+	mixin: function(classObj, methods) {
+		extend(classObj.prototype, methods);
 	},
-	make: function(instance, classType, skipInit) {
+	makeClass: function(instance, classType, skipConstructor) {
 		instance.__proto__ = classType.prototype;
 		var args = toArray(arguments);
 		args.splice(0, 3);
-		if (!skipInit && 'init' in instance) instance.init.apply(instance, args);
+		if (!skipConstructor) classType.apply(instance, args);
 	},
 	insert: function(instance, classType) {
 		var proto = {};
@@ -172,7 +170,7 @@ Function.prototype.throttle = function(delay) {
 };var ElementArray = new Class({
 	extend: Array,
 	
-	init: function(selector) {
+	constructor: function(selector) {
 		if (!selector) {
 			return;
 		} else if (selector.nodeType) {
@@ -185,27 +183,26 @@ Function.prototype.throttle = function(delay) {
 	},
 	
 	concat: function(args) {
-		return Class.make(Array.prototype.concat.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.concat.apply(this, arguments), ElementArray);
 	},
 	filter: function(func, thisObj) {
-		return Class.make(Array.prototype.filter.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.filter.call(this, func, thisObj), ElementArray);
 	},
 	map: function(func, thisObj) {
-		return Class.make(Array.prototype.map.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.map.call(this, func, thisObj), ElementArray);
 	},
 	slice: function(start, end) {
-		return Class.make(Array.prototype.slice.call(this, start, end), ElementArray);
+		return Class.makeClass(Array.prototype.slice.call(this, start, end), ElementArray);
 	},
 	splice: function(startIndex, howMany, args) {
-		return Class.make(Array.prototype.splice.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray);
 	},
-	
-	extend: function(extension) {
-		for (var i in extension) {
-			this[i] = extension[i];
-		}
-	},
-	
+
+	/**
+	 * Merges an Element, Array of Elements, or NodeList of Elements into this ElementArray.
+	 * 
+	 * @param elems NodeList|Array|Element
+	 */
 	merge: function(elems) {
 		if (elems == null) return;
 		if ( !(elems instanceof Array) && ('length' in elems)) {
@@ -215,6 +212,18 @@ Function.prototype.throttle = function(delay) {
 		}
 		this.push.apply(this, elems);
 	},
+
+	/**
+	 * Returns a new ElementArray which will be a subset of this ElementArray filtered by selector.
+	 * 
+	 * @param selector String
+	 */
+	filterBy: function(selector) {
+		// TODO benchmark this method vs using document.findAll(selector) and indexOf(element)
+		return this.filter(function(element) {
+			return element.matches(selector);
+		});
+	},
 	
 	toString: function() {
 		return 'ElementArray: [' + this.join(',') + ']';
@@ -222,17 +231,47 @@ Function.prototype.throttle = function(delay) {
 });
 
 extend(ElementArray, {
-	
+
+	/**
+	 * Static method adds a mapping function to ElementArray which runs through the list of elements and calls the
+	 * corresponding method on the element, then handles the results using the map method specified. This is only a
+	 * helper to avoid repetative or redundant functions which are all the same except for the method they are mapping
+	 * to. Using map is not required to add functionality to ElementArray.
+	 * 
+	 * Map methods:
+	 * some: returns true if ANY of the elements return true for that method.
+	 * every: returns true if ALL of the elements return true for that method.
+	 * forEach: runs the method on each element and returns a reference to itself (the ElementArray).
+	 * merge: returns a new ElementArray with the merged results of each element method call.
+	 * getterSetter: if 1 parameter is passed (a name) returns the value of the getter of the first element, if 2
+	 *               parameters are passed (name, value) will set the value on the setters of each element.
+	 * returnFirst: calls the method on the first element and returns its result.
+	 * 
+	 * Example:
+	 * <code>
+	 * // remove an element from the document
+	 * HTMLElement.prototype.destroy = function() {
+	 *     this.parentNode.removeChild(this);
+	 * }
+	 * 
+	 * // remove all elements in array from the document
+	 * ElementArray.map({ destroy: 'forEach' });
+	 * </code>
+	 * 
+	 * @param mapping Object A hash of method names and mapping methods for ElementArray to map the results in the
+	 * correct manner.
+	 */
 	map: function(mapping) {
-		var map = ElementArray.map, elementArray = ElementArray.prototype, element = HTMLElement.prototype, node = Node.prototype;
+		var map = ElementArray.map, elementArray = ElementArray.prototype, element = HTMLElement.prototype;
 		for (var i in mapping) {
 			var type = mapping[i];
-			elementArray[i] = map[type](element[i] || node[i]);
+			if (!map.hasOwnProperty(type)) continue;
+			elementArray[i] = map[type](element[i]);
 		}
 	}
 });
 
-
+// mapping methods create a new function that calls the given function on every element in the ElementArray.
 extend(ElementArray.map, {
 	some: function(func) {
 		return function() {
@@ -262,7 +301,7 @@ extend(ElementArray.map, {
 	merge: function(func) {
 		return function() {
 			var args = arguments;
-			var results = new simpli5();
+			var results = new ElementArray();
 			this.forEach(function(element) {
 				results.merge(func.apply(element, args));
 			});
@@ -286,6 +325,322 @@ extend(ElementArray.map, {
 			return func.apply(this[0], arguments);
 		};
 	}
+});var CustomEvent = new Class({
+	extend: Event,
+	constructor: function(type, bubbles, cancelable) {
+		var evt = document.createEvent('Events');
+		evt.initEvent(type, bubbles || false, cancelable || false);
+		Class.makeClass(evt, this.constructor, true);
+		return evt;
+	}
+});
+
+//initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
+var CustomMouseEvent = new Class({
+	extend: MouseEvent,
+	constructor: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+		var evt = document.createEvent('MouseEvents');
+		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
+		Class.makeClass(evt, this.constructor, true);
+		return evt;
+	}
+});
+
+
+var DataEvent = new Class({
+	extend: Event,
+	constructor: function(type, data) {
+		var evt = document.createEvent('Events');
+		evt.initEvent(type, false, false);
+		Class.makeClass(evt, this.constructor, true);
+		evt.data = data;
+		return evt;
+	}
+});
+
+var ArrayChangeEvent = new Class({
+	extend: Event,
+	constructor: function(action, startIndex, endIndex, items) {
+		var evt = document.createEvent('Events');
+		evt.initEvent('change', false, false);
+		Class.makeClass(evt, this.constructor, true);
+		evt.action = action;
+		evt.startIndex = startIndex;
+		evt.endIndex = endIndex;
+		evt.items = items;
+		return evt;
+	}
+});
+
+var EventDispatcher = new Class({
+	createClosures: function(listeners) {
+		if ( !(listeners instanceof Array)) {
+			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
+				listeners = listeners.split(/\s*,\s*/);
+			} else {
+				listeners = toArray(arguments);
+			}
+		} 
+		for (var i = 0, l = listeners.length; i < l; i++) {
+			var methodName = listeners[i];
+			if (methodName in this) this[methodName] = this[methodName].bind(this);
+		}
+	},
+	addEventListener: function(type, listener) {
+		if (typeof listener != 'function') throw 'Listener must be a function';
+		if (!this.events) {
+			this.events = {};
+		}
+		var events = this.events[type];
+		if (!events) {
+			this.events[type] = events = [];
+		} else if (events.indexOf(listener) != -1) {
+			return; // already added
+		}
+		events.push(listener);
+	},
+	removeEventListener: function(type, listener) {
+		if (!this.events) return;
+		var events = this.events[type];
+		if (!events) return;
+		var index = events.indexOf(listener);
+		if (index != -1) {
+			events.splice(index, 1);
+		}
+	},
+	on: function(type, bound, listener) {
+		var types = type.split(/\s*,\s*/);
+		if (!listener) {
+			listener = bound;
+			bound = this;
+		}
+		
+		if (!listener.hasOwnProperty('boundTo')) {
+			listener.__boundTo = {};
+		}
+		
+		var objId = molded.getId(bound);
+		listener = listener.__boundTo[objId] || (listener.__boundTo[objId] = listener.bind(this));
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.addEventListener(types[i], listener, false);
+		};
+		return this;
+	},
+	un: function(type, bound, listener) {
+		var types = type.split(/\s*,\s*/);
+		if (!listener) {
+			listener = bound;
+			bound = this;
+		}
+		
+		var objId = molded.getId(bound);
+		listener = listener.__boundTo ? listener.__boundTo[objId] || listener : listener;
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.removeEventListener(types[i], listener, false);
+		};
+		return this;
+	},
+	dispatchEvent: function(event) {
+		if (!this.events) return;
+		var events = this.events[event.type];
+		if (!events) return;
+		for (var i = 0, l = events.length; i < l; i++) {
+			events[i].call(this, event);
+		}
+	},
+	dispatch: function(eventType) {
+		if (!this.events || !this.events[event.type] || !this.events[event.type].length) return;
+		
+		this.dispatchEvent(new CustomEvent(eventType));
+	}
+});
+
+extend(Node.prototype, {
+	on: EventDispatcher.prototype.on,
+	un: EventDispatcher.prototype.un,
+	createClosures: EventDispatcher.prototype.createClosures
+});
+extend(window, {
+	on: EventDispatcher.prototype.on,
+	un: EventDispatcher.prototype.un
+});
+
+ElementArray.map({
+	on: 'forEach',
+	un: 'forEach'
+});
+
+
+/**
+ * Setup rollover/rollout events which components use often
+ */
+(function() {
+	
+	function listener(event) {
+		var child = event.relatedTarget;
+		var ancestor = event.target;
+		// cancel if the relatedTarget is a child of the target
+		while (child) {
+			if (child.parentNode == ancestor) return;
+			child = child.parentNode;
+		}
+		
+		// dispatch for the child and each parentNode except the common ancestor
+		ancestor = event.target.parentNode;
+		var ancestors = [];
+		while (ancestor) {
+			ancestors.push(ancestor);
+			ancestor = ancestor.parentNode;
+		}
+		ancestor = event.relatedTarget;
+		while (ancestor) {
+			if (ancestors.indexOf(ancestor) != -1) break;
+			ancestor = ancestor.parentNode;
+		}
+		child = event.target;
+		while (child) {
+			var mouseEvent = document.createEvent('MouseEvents');
+			mouseEvent.initEvent(event.type.replace('mouse', 'roll'),
+					false, // does not bubble
+					event.cancelable,
+					event.view,
+					event.detail, event.screenX, event.screenY,
+					event.ctrlKey, event.altKey, event.metaKey, event.button,
+					event.relatedTarget);
+			child.dispatchEvent(mouseEvent);
+			child = child.parentNode;
+			if (child == ancestor) break;
+		}
+	}
+	
+	// setup the rollover/out events for components to use
+	document.addEventListener('mouseover', listener, false);
+	document.addEventListener('mouseout', listener, false);
+})();
+var molded = (function() {
+	
+	// PRIVATE MEMBERS
+	
+	// id for global object ids used with molded.getId()
+	var id = 0;
+	
+	// holds component registrations
+	var registry = {};
+	
+	/**
+	 * Sets up everything needed when the document is ready.
+	 */
+	function onDomLoaded() {
+		molded.dispatch('domready');
+		molded.mold(document.body);
+		molded.dispatch('ready');
+	}
+	
+	
+	// molded class, public members
+	
+	var Molded = new Class({
+		extend: EventDispatcher,
+		
+		/**
+		 * Constructor
+		 */
+		constructor: function() {
+			document.addEventListener('DOMContentLoaded', onDomLoaded);
+		},
+		
+		/**
+		 * Create and return a unique id for an object. This allows object lookup in object hashmaps.
+		 * 
+		 * @param obj Object
+		 * @return String
+		 */
+		getId: function(obj) {
+			return obj.__moldedId || (obj.__moldedId = id++);
+		},
+		
+		/**
+		 * Registers a selector which will find and convert all elements to the given component type. When a two
+		 * selectors match an element the former component will take precedence. When registering a component with the
+		 * exact same selector as a previously registered component, the former will be replaced in the registry.
+		 * 
+		 * @param selector String
+		 * @param componentClass Function (Class)
+		 */
+		register: function(selector, componentClass) {
+			registry[selector] = componentClass;
+		},
+
+		/**
+		 * Unregisters a given selector from converting its elements to a component type.
+		 * 
+		 * @param selector String
+		 */
+		unregister: function(selector) {
+			delete registry[selector];
+		},
+
+		/**
+		 * Returns the component type that is registered with a given selector.
+		 * 
+		 * @param selector
+		 */
+		getRegistered: function(selector) {
+			return registry[selector];
+		},
+		
+		/**
+		 * Initialize all the components and set up all the data-bindings.
+		 * 
+		 * @param element HTMLElement
+		 */
+		mold: function(element) {
+			
+			for (var i in registry) {
+				element.findAll(i).makeClass(registry[i]);
+			}
+			
+			
+			
+			
+			
+		}
+	});
+	
+	
+	// return an instance of the molded class
+	return new Molded();
+})();
+extend(Node.prototype, {
+	parent: function(selector) {
+		var node = this.parentNode;
+		while (node) {
+			if (node.matches(selector)) return node;
+			node = node.parentNode;
+		}
+		return null;
+	}
+});
+
+extend(Element.prototype, {
+	find: function(selector) {
+		return this.querySelector(selector);
+	},
+	findAll: function(selector) {
+		return new ElementArray(this.querySelectorAll(selector));
+	},
+	matches: (Element.prototype.matchesSelector || Element.prototype.webkitMatchesSelector || Element.prototype.mozMatchesSelector || function(selector) {
+		return (document.find(selector).indexOf(this) != -1);
+	})
+});
+
+HTMLDocument.prototype.find = Element.prototype.find;
+HTMLDocument.prototype.findAll = Element.prototype.findAll;
+
+ElementArray.map({
+	matches: 'every'
 });(function() {
 	
 var spaceExpr = /\s+/, dashExpr = /([A-Z])/g, htmlExpr = /^[^<]*(<(.|\s)+>)[^>]*$/, numCSSExpr = /z-?index|font-?weight|opacity|zoom|line-?height/i;
@@ -353,8 +708,8 @@ extend(HTMLElement.prototype, {
 		this.removeAttribute(name);
 		return this;
 	},
-	make: function(classType) {
-		Class.make(this, classType);
+	makeClass: function(classType) {
+		Class.makeClass(this, classType);
 		return this;
 	},
 	html: function(value) {
@@ -441,7 +796,7 @@ ElementArray.map({
 	attr: 'getterSetter',
 	removeAttr: 'forEach',
 	css: 'getterSetter',
-	make: 'forEach',
+	makeClass: 'forEach',
 	html: 'getterSetter',
 	text: 'getterSetter',
 	val: 'getterSetter',
@@ -459,6 +814,7 @@ extend(HTMLElement.prototype, {
 			return this.offsetWidth - padding - border;
 		} else {
 			this.css('width', Math.max(value, 0));
+			return this;
 		}
 	},
 	height: function(value) {
@@ -468,6 +824,7 @@ extend(HTMLElement.prototype, {
 			return this.offsetHeight - padding - border;
 		} else {
 			this.css('height', Math.max(value, 0));
+			return this;
 		}
 	},
 	outerWidth: function(value) {
@@ -477,6 +834,7 @@ extend(HTMLElement.prototype, {
 			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
 			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
 			this.css('width', Math.max(value - padding - border, 0));
+			return this;
 		}
 	},
 	outerHeight: function(value) {
@@ -486,6 +844,7 @@ extend(HTMLElement.prototype, {
 			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
 			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
 			this.css('height', Math.max(value - padding - border, 0));
+			return this;
 		}
 	},
 	rect: function(value) {
@@ -505,6 +864,7 @@ extend(HTMLElement.prototype, {
 			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
+			return this;
 		}
 	}
 });
@@ -517,6 +877,10 @@ ElementArray.map({
 	outerHeight: 'getterSetter',
 	rect: 'getterSetter'
 });extend(HTMLElement.prototype, {
+	makeClass: function(type) {
+		Class.makeClass(this, type);
+		return this;
+	},
 	cleanWhitespace: function() {
 		var node = this.firstChild;
 		while (node) {
@@ -526,6 +890,7 @@ ElementArray.map({
 				this.removeChild(curNode);
 			}
 		}
+		return this;
 	},
 	after: function(html) {
 		var frag = toFragment(html);
@@ -556,143 +921,13 @@ ElementArray.map({
 
 
 ElementArray.map({
+	makeClass: 'forEach',
 	cleanWhitespace: 'forEach',
 	after: 'merge',
 	append: 'merge',
 	before: 'merge',
 	prepend: 'merge'
-});var CustomEvent = new Class({
-	extend: Event,
-	init: function(type, bubbles, cancelable) {
-		var evt = document.createEvent('Events');
-		evt.initEvent(type, bubbles || false, cancelable || false);
-		Class.make(evt, this.constructor, true);
-		return evt;
-	}
 });
-
-//initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
-var CustomMouseEvent = new Class({
-	extend: MouseEvent,
-	init: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
-		var evt = document.createEvent('MouseEvents');
-		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
-		Class.make(evt, this.constructor, true);
-		return evt;
-	}
-});
-
-
-var DataEvent = new Class({
-	extend: Event,
-	init: function(type, data) {
-		var evt = document.createEvent('Events');
-		evt.initEvent(type, false, false);
-		Class.make(evt, this.constructor, true);
-		evt.data = data;
-		return evt;
-	}
-});
-
-var ArrayChangeEvent = new Class({
-	extend: Event,
-	init: function(action, startIndex, endIndex, items) {
-		var evt = document.createEvent('Events');
-		evt.initEvent('change', false, false);
-		Class.make(evt, this.constructor, true);
-		evt.action = action;
-		evt.startIndex = startIndex;
-		evt.endIndex = endIndex;
-		evt.items = items;
-		return evt;
-	}
-});
-
-var EventDispatcher = new Class({
-	createClosures: function(listeners) {
-		if ( !(listeners instanceof Array)) {
-			if (arguments.length == 1 && typeof listeners == 'string' && listeners.indexOf(',') != -1) {
-				listeners = listeners.split(/\s*,\s*/);
-			} else {
-				listeners = toArray(arguments);
-			}
-		} 
-		for (var i = 0, l = listeners.length; i < l; i++) {
-			var methodName = listeners[i];
-			if (methodName in this) this[methodName] = this[methodName].bind(this);
-		}
-	},
-	addEventListener: function(type, listener) {
-		if (typeof listener != 'function') throw 'Listener must be a function';
-		if (!this.events) {
-			this.events = {};
-		}
-		var events = this.events[type];
-		if (!events) {
-			this.events[type] = events = [];
-		} else if (events.indexOf(listener) != -1) {
-			return; // already added
-		}
-		events.push(listener);
-	},
-	removeEventListener: function(type, listener) {
-		if (!this.events) return;
-		var events = this.events[type];
-		if (!events) return;
-		var index = events.indexOf(listener);
-		if (index != -1) {
-			events.splice(index, 1);
-		}
-	},
-	dispatchEvent: function(event) {
-		if (!this.events) return;
-		var events = this.events[event.type];
-		if (!events) return;
-		for (var i = 0, l = events.length; i < l; i++) {
-			events[i].call(this, event);
-		}
-	}
-});
-
-extend(EventDispatcher.prototype, {
-	on: function(type, listener, capture) {
-		var types = type.split(/\s*,\s*/);
-		//console.log(listener, typeof listener, listener instanceof NodeList);
-		if (listener instanceof NodeList) {
-			console.log(listener, listener.bind);
-		}
-		listener.bound = listener.bind(this);
-		listener = listener.bound;
-		for (var i = 0, l = types.length; i < l; i++) {
-			this.addEventListener(types[i], listener, capture);
-		};
-		return this;
-	},
-	un: function(type, listener, capture) {
-		var types = type.split(/\s*,\s*/);
-		listener = listener.bound || listener;
-		for (var i = 0, l = types.length; i < l; i++) {
-			this.removeEventListener(types[i], listener, capture);
-		};
-		return this;
-	}
-});
-
-extend(Node.prototype, {
-	on: EventDispatcher.prototype.on,
-	un: EventDispatcher.prototype.un,
-	createClosures: EventDispatcher.prototype.createClosures
-});
-extend(window, {
-	on: EventDispatcher.prototype.on,
-	un: EventDispatcher.prototype.un
-});
-
-ElementArray.map({
-	on: 'forEach',
-	un: 'forEach'
-});
-
 var PropertyChange;
 var Bind;
 var BindableArray;
@@ -888,7 +1123,7 @@ Bind = {
 
 var Binding = new Class({
 	
-	init: function(source, sourcePath, target, targetPath, twoWay) {
+	constructor: function(source, sourcePath, target, targetPath, twoWay) {
 		this.onChange = this.onChange.bind(this);
 		this.source = [];
 		this.target = [];
@@ -1020,40 +1255,35 @@ BindableArray = new Class({
 	implement: EventDispatcher,
 	
 	push: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice();
-		args.unshift('push');
-		var result = this.callSuper.apply(this, args);
+		var items = toArray(arguments);
+		var result = Array.prototype.push.apply(this, items);
 		this.dispatchEvent(new ArrayChangeEvent('add', this.length - items.length, this.length - 1, items));
 		return result;
 	},
 	
 	pop: function() {
-		var result = this.callSuper.call(this, 'pop');
+		var result = Array.prototype.pop.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('remove', this.length, this.length, [result]));
 		return result;
 	},
 	
 	shift: function() {
-		var result = this.callSuper.call(this, 'shift');
+		var result = Array.prototype.shift.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('remove', 0, 0, [result]));
 		return result;
 	},
 	
 	unshift: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice();
-		args.unshift('unshift');
-		var result = this.callSuper.apply(this, args);
+		var items = toArray(arguments);
+		var result = Array.prototype.unshift.apply(this, items);
 		this.dispatchEvent(new ArrayChangeEvent('add', 0, items.length, items));
 		return result;
 	},
 	
 	splice: function(index, howmany, element1) {
-		var args = $.toArray(arguments);
+		var args = toArray(arguments);
 		var items = args.slice(2);
-		args.unshift('splice');
-		var result = this.callSuper.apply(this, args);
+		var result = Array.prototype.splice.apply(this, args);
 		
 		if (howmany) {
 			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
@@ -1065,16 +1295,14 @@ BindableArray = new Class({
 	},
 	
 	sort: function() {
-		var args = $.toArray(arguments);
-		var items = args.slice(2);
-		args.unshift('sort');
-		var result = this.callSuper.apply(this, args);
+		var args = toArray(arguments);
+		var result = Array.prototype.sort.apply(this, args);
 		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
 		return result;
 	},
 	
 	reverse: function() {
-		var result = this.callSuper('reverse');
+		var result = Array.prototype.reverse.call(this);
 		this.dispatchEvent(new ArrayChangeEvent('reset', 0, this.length - 1, this));
 		return result;
 	}
@@ -1082,7 +1310,7 @@ BindableArray = new Class({
 
 })();
 var Template = new Class({
-	init: function (html) {
+	constructor: function (html) {
 		this.compiled = null;
 		if (arguments.length) {
 			this.set.apply(this, arguments);
@@ -1165,7 +1393,7 @@ var Template = new Class({
 		// if there are no binding expressions, just return the html
 		if (!this.html.match(this.placeholdersExp)) return topElement;
 		
-		var nodes = topElement.find('*');
+		var nodes = topElement.findAll('*');
 		nodes.unshift(topElement);
 		var nodeIndexes = [];
 		while (this.tagStartExp.test(this.html)) {
@@ -1246,22 +1474,26 @@ var Template = new Class({
 		return topElement;
 	}
 });function Component(implementation) {
-	function constructor(data) { // the data object for an itemRenderer
+	// call the constructor inside our custom constructor
+	var constructor = implementation.constructor;
+	
+	implementation.constructor = function(data) { // the data object for an itemRenderer
 		var view = this.template.createBound(data);
 		view.__proto__ = this.__proto__;
 		if ( !(view instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
-		if (view.init) {
-			view.init.apply(view, arguments);
+		if (constructor) {
+			constructor.apply(view, arguments);
 		}
 		return view;
 	}
-	return new Class(implementation, constructor);
+	
+	return new Class(implementation);
 }
 
 var Button = new Component({
 	extend: HTMLButtonElement,
 	template: new Template('<button></button>'),
-	init: function() {
+	constructor: function() {
 		
 	},
 	get label() {
@@ -1272,53 +1504,6 @@ var Button = new Component({
 	}
 });
 
-
-/**
- * Setup rollover/rollout events which components use often
- */
-(function() {
-	
-	function listener(event) {
-		var child = event.relatedTarget;
-		var ancestor = event.target;
-		// cancel if the relatedTarget is a child of the target
-		while (child) {
-			if (child.parentNode == ancestor) return;
-			child = child.parentNode;
-		}
-		
-		// dispatch for the child and each parentNode except the common ancestor
-		ancestor = event.target.parentNode;
-		var ancestors = [];
-		while (ancestor) {
-			ancestors.push(ancestor);
-			ancestor = ancestor.parentNode;
-		}
-		ancestor = event.relatedTarget;
-		while (ancestor) {
-			if (ancestors.indexOf(ancestor) != -1) break;
-			ancestor = ancestor.parentNode;
-		}
-		child = event.target;
-		while (child) {
-			var mouseEvent = document.createEvent('MouseEvents');
-			mouseEvent.initEvent(event.type.replace('mouse', 'roll'),
-					false, // does not bubble
-					event.cancelable,
-					event.view,
-					event.detail, event.screenX, event.screenY,
-					event.ctrlKey, event.altKey, event.metaKey, event.button,
-					event.relatedTarget);
-			child.dispatchEvent(mouseEvent);
-			child = child.parentNode;
-			if (child == ancestor) break;
-		}
-	}
-	
-	// setup the rollover/out events for components to use
-	document.addEventListener('mouseover', listener, false);
-	document.addEventListener('mouseout', listener, false);
-})();
 Storage.prototype.get = function(key) {
     return JSON.parse(this.getItem(key));
 }

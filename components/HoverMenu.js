@@ -129,7 +129,7 @@ var HoverSubMenu = new Component({
 	onDataChange: function(prop, old, value) {
 		if (old) old.un('change', this.onChildrenChange);
 		if (value && value instanceof Array) {
-			if ( !(value instanceof BindableArray)) Class.make(value, BindableArray);
+			if ( !(value instanceof BindableArray)) Class.makeClass(value, BindableArray);
 			value.on('change', this.onChildrenChange);
 			
 			if (this.items) {

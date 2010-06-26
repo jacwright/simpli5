@@ -1,4 +1,8 @@
 extend(HTMLElement.prototype, {
+	makeClass: function(type) {
+		Class.makeClass(this, type);
+		return this;
+	},
 	cleanWhitespace: function() {
 		var node = this.firstChild;
 		while (node) {
@@ -8,6 +12,7 @@ extend(HTMLElement.prototype, {
 				this.removeChild(curNode);
 			}
 		}
+		return this;
 	},
 	after: function(html) {
 		var frag = toFragment(html);
@@ -38,6 +43,7 @@ extend(HTMLElement.prototype, {
 
 
 ElementArray.map({
+	makeClass: 'forEach',
 	cleanWhitespace: 'forEach',
 	after: 'merge',
 	append: 'merge',

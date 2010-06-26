@@ -7,6 +7,7 @@ extend(HTMLElement.prototype, {
 			return this.offsetWidth - padding - border;
 		} else {
 			this.css('width', Math.max(value, 0));
+			return this;
 		}
 	},
 	height: function(value) {
@@ -16,6 +17,7 @@ extend(HTMLElement.prototype, {
 			return this.offsetHeight - padding - border;
 		} else {
 			this.css('height', Math.max(value, 0));
+			return this;
 		}
 	},
 	outerWidth: function(value) {
@@ -25,6 +27,7 @@ extend(HTMLElement.prototype, {
 			var padding = parseInt(this.css('paddingLeft')) + parseInt(this.css('paddingRight'));
 			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
 			this.css('width', Math.max(value - padding - border, 0));
+			return this;
 		}
 	},
 	outerHeight: function(value) {
@@ -34,6 +37,7 @@ extend(HTMLElement.prototype, {
 			var padding = parseInt(this.css('paddingTop')) + parseInt(this.css('paddingBottom'));
 			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
 			this.css('height', Math.max(value - padding - border, 0));
+			return this;
 		}
 	},
 	rect: function(value) {
@@ -53,6 +57,7 @@ extend(HTMLElement.prototype, {
 			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
+			return this;
 		}
 	}
 });

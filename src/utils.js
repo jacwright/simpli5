@@ -10,14 +10,12 @@ function toArray(iterable) {
 	return arr;
 }
 
-function extend(obj, extension, excludeInherited) {
+function extend(obj, extension) {
 	if (arguments.length == 1) {
 		obj = this;
 		extension = obj;
 	}
 	for (var i in extension) {
-		if (excludeInherited && !extension.hasOwnProperty(i)) continue;
-		
 		var getter = extension.__lookupGetter__(i), setter = extension.__lookupSetter__(i);
 		if (getter || setter) {
 			if (getter) obj.__defineGetter__(i, getter);
@@ -54,5 +52,5 @@ var toFragment = (function() {
 
 
 function toElement(html) {
-	return this.fragment(html).firstChild;
+	return toFragment(html).firstChild;
 }

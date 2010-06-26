@@ -1,9 +1,9 @@
 var CustomEvent = new Class({
 	extend: Event,
-	init: function(type, bubbles, cancelable) {
+	constructor: function(type, bubbles, cancelable) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, bubbles || false, cancelable || false);
-		Class.make(evt, this.constructor, true);
+		Class.makeClass(evt, this.constructor, true);
 		return evt;
 	}
 });
@@ -11,10 +11,10 @@ var CustomEvent = new Class({
 //initMouseEvent( 'type', bubbles, cancelable, windowObject, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget )
 var CustomMouseEvent = new Class({
 	extend: MouseEvent,
-	init: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
+	constructor: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
 		var evt = document.createEvent('MouseEvents');
 		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
-		Class.make(evt, this.constructor, true);
+		Class.makeClass(evt, this.constructor, true);
 		return evt;
 	}
 });
@@ -22,10 +22,10 @@ var CustomMouseEvent = new Class({
 
 var DataEvent = new Class({
 	extend: Event,
-	init: function(type, data) {
+	constructor: function(type, data) {
 		var evt = document.createEvent('Events');
 		evt.initEvent(type, false, false);
-		Class.make(evt, this.constructor, true);
+		Class.makeClass(evt, this.constructor, true);
 		evt.data = data;
 		return evt;
 	}
@@ -33,10 +33,10 @@ var DataEvent = new Class({
 
 var ArrayChangeEvent = new Class({
 	extend: Event,
-	init: function(action, startIndex, endIndex, items) {
+	constructor: function(action, startIndex, endIndex, items) {
 		var evt = document.createEvent('Events');
 		evt.initEvent('change', false, false);
-		Class.make(evt, this.constructor, true);
+		Class.makeClass(evt, this.constructor, true);
 		evt.action = action;
 		evt.startIndex = startIndex;
 		evt.endIndex = endIndex;
@@ -81,6 +81,40 @@ var EventDispatcher = new Class({
 			events.splice(index, 1);
 		}
 	},
+	on: function(type, bound, listener) {
+		var types = type.split(/\s*,\s*/);
+		if (!listener) {
+			listener = bound;
+			bound = this;
+		}
+		
+		if (!listener.hasOwnProperty('boundTo')) {
+			listener.__boundTo = {};
+		}
+		
+		var objId = molded.getId(bound);
+		listener = listener.__boundTo[objId] || (listener.__boundTo[objId] = listener.bind(this));
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.addEventListener(types[i], listener, false);
+		};
+		return this;
+	},
+	un: function(type, bound, listener) {
+		var types = type.split(/\s*,\s*/);
+		if (!listener) {
+			listener = bound;
+			bound = this;
+		}
+		
+		var objId = molded.getId(bound);
+		listener = listener.__boundTo ? listener.__boundTo[objId] || listener : listener;
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			this.removeEventListener(types[i], listener, false);
+		};
+		return this;
+	},
 	dispatchEvent: function(event) {
 		if (!this.events) return;
 		var events = this.events[event.type];
@@ -88,30 +122,11 @@ var EventDispatcher = new Class({
 		for (var i = 0, l = events.length; i < l; i++) {
 			events[i].call(this, event);
 		}
-	}
-});
-
-extend(EventDispatcher.prototype, {
-	on: function(type, listener, capture) {
-		var types = type.split(/\s*,\s*/);
-		//console.log(listener, typeof listener, listener instanceof NodeList);
-		if (listener instanceof NodeList) {
-			console.log(listener, listener.bind);
-		}
-		listener.bound = listener.bind(this);
-		listener = listener.bound;
-		for (var i = 0, l = types.length; i < l; i++) {
-			this.addEventListener(types[i], listener, capture);
-		};
-		return this;
 	},
-	un: function(type, listener, capture) {
-		var types = type.split(/\s*,\s*/);
-		listener = listener.bound || listener;
-		for (var i = 0, l = types.length; i < l; i++) {
-			this.removeEventListener(types[i], listener, capture);
-		};
-		return this;
+	dispatch: function(eventType) {
+		if (!this.events || !this.events[event.type] || !this.events[event.type].length) return;
+		
+		this.dispatchEvent(new CustomEvent(eventType));
 	}
 });
 
@@ -129,3 +144,51 @@ ElementArray.map({
 	on: 'forEach',
 	un: 'forEach'
 });
+
+
+/**
+ * Setup rollover/rollout events which components use often
+ */
+(function() {
+	
+	function listener(event) {
+		var child = event.relatedTarget;
+		var ancestor = event.target;
+		// cancel if the relatedTarget is a child of the target
+		while (child) {
+			if (child.parentNode == ancestor) return;
+			child = child.parentNode;
+		}
+		
+		// dispatch for the child and each parentNode except the common ancestor
+		ancestor = event.target.parentNode;
+		var ancestors = [];
+		while (ancestor) {
+			ancestors.push(ancestor);
+			ancestor = ancestor.parentNode;
+		}
+		ancestor = event.relatedTarget;
+		while (ancestor) {
+			if (ancestors.indexOf(ancestor) != -1) break;
+			ancestor = ancestor.parentNode;
+		}
+		child = event.target;
+		while (child) {
+			var mouseEvent = document.createEvent('MouseEvents');
+			mouseEvent.initEvent(event.type.replace('mouse', 'roll'),
+					false, // does not bubble
+					event.cancelable,
+					event.view,
+					event.detail, event.screenX, event.screenY,
+					event.ctrlKey, event.altKey, event.metaKey, event.button,
+					event.relatedTarget);
+			child.dispatchEvent(mouseEvent);
+			child = child.parentNode;
+			if (child == ancestor) break;
+		}
+	}
+	
+	// setup the rollover/out events for components to use
+	document.addEventListener('mouseover', listener, false);
+	document.addEventListener('mouseout', listener, false);
+})();

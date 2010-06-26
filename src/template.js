@@ -1,5 +1,5 @@
 var Template = new Class({
-	init: function (html) {
+	constructor: function (html) {
 		this.compiled = null;
 		if (arguments.length) {
 			this.set.apply(this, arguments);
@@ -82,7 +82,7 @@ var Template = new Class({
 		// if there are no binding expressions, just return the html
 		if (!this.html.match(this.placeholdersExp)) return topElement;
 		
-		var nodes = topElement.find('*');
+		var nodes = topElement.findAll('*');
 		nodes.unshift(topElement);
 		var nodeIndexes = [];
 		while (this.tagStartExp.test(this.html)) {

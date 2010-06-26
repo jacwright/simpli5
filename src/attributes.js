@@ -65,8 +65,8 @@ extend(HTMLElement.prototype, {
 		this.removeAttribute(name);
 		return this;
 	},
-	make: function(classType) {
-		Class.make(this, classType);
+	makeClass: function(classType) {
+		Class.makeClass(this, classType);
 		return this;
 	},
 	html: function(value) {
@@ -153,7 +153,7 @@ ElementArray.map({
 	attr: 'getterSetter',
 	removeAttr: 'forEach',
 	css: 'getterSetter',
-	make: 'forEach',
+	makeClass: 'forEach',
 	html: 'getterSetter',
 	text: 'getterSetter',
 	val: 'getterSetter',
