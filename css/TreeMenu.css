@@ -1,0 +1,94 @@
+.TreeMenu {
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	cursor: default;
+	width: 200px;
+	overflow: auto;
+	height: 100%;
+}
+#explorer section div:first-child {
+	display: none;
+}
+.TreeMenu ul {
+	margin: 0;
+	padding: 0 0 0 20px;
+	clear: left;
+	float: left;
+	list-style: none;
+	white-space: nowrap;
+}
+.TreeMenu ul ul {
+	margin-left: -40px;
+	padding-left: 40px;
+	width: 100%;
+	position: relative;
+	z-index: 100;
+}
+.TreeMenu li {
+	margin: 0;
+	padding: 0 4px 0 20px;
+	height: 18px; /* row-height (should be an even number) */
+	clear: left;
+	white-space: nowrap;
+	position: relative;
+}
+.TreeMenu span {
+	float: left;
+	width: 20px; /* column-width (odd or even) */
+	height: 100%;
+}
+.TreeMenu .line {
+	background: url(../images/dotted-v.png) repeat-y 10px 0;
+}
+.TreeMenu .icon.line {
+	background: url(../images/dotted-h.png) no-repeat -20px 8px;
+}
+.TreeMenu .icon.elbow {
+	background: url(../images/dotted-v.png) no-repeat 10px 8px, url(../images/dotted-h.png) no-repeat -20px 8px;
+}
+.TreeMenu .tee {
+	background: url(../images/dotted-v.png) no-repeat 10px 0, url(../images/dotted-h.png) no-repeat 10px 8px;
+}
+.TreeMenu .elbow {
+	background: url(../images/dotted-v.png) no-repeat 10px -20px, url(../images/dotted-h.png) no-repeat 10px 8px;
+}
+.TreeMenu .top-elbow {
+	background: url(../images/dotted-v.png) no-repeat 10px 8px, url(../images/dotted-h.png) no-repeat 10px 8px;
+}
+.TreeMenu .open {
+	background: url(../images/minus.gif) no-repeat 50% 50%;
+}
+.TreeMenu .closed {
+	background: url(../images/plus.gif) no-repeat 50% 50%;
+}
+.TreeMenu .folder {
+	background: url(../images/folder.png) no-repeat 50% 50%;
+}
+.TreeMenu .page {
+	background: url(../images/page.png) no-repeat 50% 50%;
+}
+.TreeMenu .item {
+	width: 100%;
+}
+.TreeMenu .icon img {
+	width: 16px;
+	height: 16px;
+	margin: 1px;
+}
+.TreeMenu .label {
+	width: auto;
+	max-width: 100%;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	border-radius: 6px;
+	border: 1px solid transparent;
+	padding: 0 2px;
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	font: 9pt/16px "Lucida Grande", "Segoe UI", Tahoma;
+}
+.TreeMenu .item.selected .label {
+	background-color: #D8F2FF;
+	border: 1px solid #B2E5FF;
+}
