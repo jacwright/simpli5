@@ -1,3 +1,4 @@
+
 var Template = new Class({
 	constructor: function (html) {
 		this.compiled = null;

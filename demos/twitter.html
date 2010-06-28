@@ -2,18 +2,29 @@
 <html>
 <head>
 <title>Molded Twitter Demo</title>
+<link rel="stylesheet" href="../css/Stack.css" />
 <script type="text/javascript" src="../molded.js"></script>
+<script type="text/javascript" src="../components/Stack.js"></script>
 <script type="text/javascript">
+molded.on('ready', function() {
 	
+});
 </script>
 </head>
 <body>
 
-<pages>
-	<page>
+<stack onchange="console.log('changed', this.selectedIndex)" onclick="this.selectedIndex += 1;if (this.selectedIndex == -1) this.selectedIndex = 0;" selected="auth">
+	<page style="border: 1px solid #06F; background-color: rgba(0, 100, 255, .5); height: 100px;">
 		
 	</page>
-</pages>
+	<page style="background-color: red; height: 100px;">
+		
+	</page>
+	<page name="auth" style="background-color: green; height: 200px;">
+		
+	</page>
+	
+</stack>
 
 </body>
 </html>

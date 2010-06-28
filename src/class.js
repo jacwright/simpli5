@@ -1,7 +1,7 @@
+
 /**
  * 
  * @param implementation
- * @param [constructor] private
  */
 function Class(implementation) {
 	// create the constructor if not provided

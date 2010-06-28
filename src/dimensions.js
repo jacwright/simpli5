@@ -62,7 +62,6 @@ extend(HTMLElement.prototype, {
 	}
 });
 
-
 ElementArray.map({
 	width: 'getterSetter',
 	height: 'getterSetter',

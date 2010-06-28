@@ -26,6 +26,15 @@ function extend(obj, extension) {
 	}
 }
 
+String.trim = function(str) {
+	return str.replace(String.trim.regex, '');
+};
+String.trim.regex = /^\s+|\s+$/g;
+
+function isNumeric(value) {
+	return typeof value == 'number' || (typeof value == 'string' && parseFloat(value).toString() == String.trim(value));
+}
+
 var toFragment = (function() {
 	var div = document.createElement('div');
 	

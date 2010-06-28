@@ -1,3 +1,4 @@
+
 extend(HTMLElement.prototype, {
 	makeClass: function(type) {
 		Class.makeClass(this, type);

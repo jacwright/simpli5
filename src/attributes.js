@@ -1,3 +1,4 @@
+
 (function() {
 	
 var spaceExpr = /\s+/, dashExpr = /([A-Z])/g, htmlExpr = /^[^<]*(<(.|\s)+>)[^>]*$/, numCSSExpr = /z-?index|font-?weight|opacity|zoom|line-?height/i;
@@ -63,10 +64,6 @@ extend(HTMLElement.prototype, {
 	},
 	removeAttr: function(name) {
 		this.removeAttribute(name);
-		return this;
-	},
-	makeClass: function(classType) {
-		Class.makeClass(this, classType);
 		return this;
 	},
 	html: function(value) {
@@ -153,7 +150,6 @@ ElementArray.map({
 	attr: 'getterSetter',
 	removeAttr: 'forEach',
 	css: 'getterSetter',
-	makeClass: 'forEach',
 	html: 'getterSetter',
 	text: 'getterSetter',
 	val: 'getterSetter',

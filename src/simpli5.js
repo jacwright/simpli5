@@ -1,5 +1,5 @@
 
-var molded = (function() {
+var simpli5 = (function() {
 	
 	// PRIVATE MEMBERS
 	
@@ -13,15 +13,15 @@ var molded = (function() {
 	 * Sets up everything needed when the document is ready.
 	 */
 	function onDomLoaded() {
-		molded.dispatch('domready');
-		molded.mold(document.body);
-		molded.dispatch('ready');
+		simpli5.dispatch('domready');
+		simpli5.mold(document.body);
+		simpli5.dispatch('ready');
 	}
 	
 	
 	// molded class, public members
 	
-	var Molded = new Class({
+	var Simpli5 = new Class({
 		extend: EventDispatcher,
 		
 		/**
@@ -38,7 +38,7 @@ var molded = (function() {
 		 * @return String
 		 */
 		getId: function(obj) {
-			return obj.__moldedId || (obj.__moldedId = id++);
+			return obj.__simpli5Id || (obj.__simpli5Id = id++);
 		},
 		
 		/**
@@ -91,5 +91,5 @@ var molded = (function() {
 	
 	
 	// return an instance of the molded class
-	return new Molded();
+	return new Simpli5();
 })();

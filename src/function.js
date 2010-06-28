@@ -1,3 +1,4 @@
+
 /**
  * Bind a function to run in the scope of obj (i.e. "this" will equal obj) 
  * @param obj

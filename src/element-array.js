@@ -1,3 +1,4 @@
+
 var ElementArray = new Class({
 	extend: Array,
 	
@@ -76,7 +77,8 @@ extend(ElementArray, {
 	 * merge: returns a new ElementArray with the merged results of each element method call.
 	 * getterSetter: if 1 parameter is passed (a name) returns the value of the getter of the first element, if 2
 	 *               parameters are passed (name, value) will set the value on the setters of each element.
-	 * returnFirst: calls the method on the first element and returns its result.
+	 * returnFirst: calls the method on each element until a non-null result is returned.
+	 * callFirst: calls the method on the first element and returns its result.
 	 * 
 	 * Example:
 	 * <code>
@@ -95,9 +97,12 @@ extend(ElementArray, {
 	map: function(mapping) {
 		var map = ElementArray.map, elementArray = ElementArray.prototype, element = HTMLElement.prototype;
 		for (var i in mapping) {
-			var type = mapping[i];
-			if (!map.hasOwnProperty(type)) continue;
-			elementArray[i] = map[type](element[i]);
+			var func = mapping[i];
+			if (typeof func != 'function') {
+				if (!map.hasOwnProperty(func)) continue;
+				func = map[func];
+			}
+			elementArray[i] = func(element[i]);
 		}
 	}
 });
@@ -152,6 +157,14 @@ extend(ElementArray.map, {
 		};
 	},
 	returnFirst: function(func) {
+		return function() {
+			for (var i = 0, l = this.length; i < l; i++) {
+				var result = func.apply(this[i], arguments);
+				if (result != null) return result;
+			}
+		};
+	},
+	callFirst: function(func) {
 		return function() {
 			return func.apply(this[0], arguments);
 		};

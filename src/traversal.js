@@ -19,12 +19,20 @@ extend(Element.prototype, {
 	},
 	matches: (Element.prototype.matchesSelector || Element.prototype.webkitMatchesSelector || Element.prototype.mozMatchesSelector || function(selector) {
 		return (document.find(selector).indexOf(this) != -1);
-	})
+	}),
+	getChildren: function(selector) {
+		var children = new ElementArray(this.children);
+		if (selector) children.filterBy(selector)
+		return children;
+	}
 });
 
 HTMLDocument.prototype.find = Element.prototype.find;
 HTMLDocument.prototype.findAll = Element.prototype.findAll;
 
 ElementArray.map({
-	matches: 'every'
+	find: 'returnFirst',
+	findAll: 'merge',
+	matches: 'every',
+	getChildren: 'merge'
 });

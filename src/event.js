@@ -1,3 +1,4 @@
+
 var CustomEvent = new Class({
 	extend: Event,
 	constructor: function(type, bubbles, cancelable) {
@@ -14,6 +15,17 @@ var CustomMouseEvent = new Class({
 	constructor: function(type, bubbles, cancelable, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) {
 		var evt = document.createEvent('MouseEvents');
 		evt.initEvent(type, bubbles || false, cancelable || false, view, detail, screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget);
+		Class.makeClass(evt, this.constructor, true);
+		return evt;
+	}
+});
+
+// initMutationEvent( 'type', bubbles, cancelable, relatedNode, (string) prevValue, (string) newValue, (string) attrName, (short) attrChange )
+var CustomMutationEvent = new Class({
+	extend: MutationEvent,
+	constructor: function(type, bubbles, cancelable, relatedNode, prevValue, newValue, attrName, attrChange) {
+		var evt = document.createEvent('MutationEvents');
+		evt.initMutationEvent(type, bubbles || false, cancelable || false, relatedNode, prevValue, newValue, attrName, attrChange);
 		Class.makeClass(evt, this.constructor, true);
 		return evt;
 	}
@@ -92,7 +104,7 @@ var EventDispatcher = new Class({
 			listener.__boundTo = {};
 		}
 		
-		var objId = molded.getId(bound);
+		var objId = simpli5.getId(bound);
 		listener = listener.__boundTo[objId] || (listener.__boundTo[objId] = listener.bind(this));
 		
 		for (var i = 0, l = types.length; i < l; i++) {
@@ -107,7 +119,7 @@ var EventDispatcher = new Class({
 			bound = this;
 		}
 		
-		var objId = molded.getId(bound);
+		var objId = simpli5.getId(bound);
 		listener = listener.__boundTo ? listener.__boundTo[objId] || listener : listener;
 		
 		for (var i = 0, l = types.length; i < l; i++) {
@@ -124,7 +136,7 @@ var EventDispatcher = new Class({
 		}
 	},
 	dispatch: function(eventType) {
-		if (!this.events || !this.events[event.type] || !this.events[event.type].length) return;
+		if (!this.events || !this.events[eventType] || !this.events[eventType].length) return;
 		
 		this.dispatchEvent(new CustomEvent(eventType));
 	}

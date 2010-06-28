@@ -1,0 +1,6 @@
+stack {
+	display: block;
+}
+stack > * {
+	display: block;
+}
