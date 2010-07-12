@@ -1,17 +1,17 @@
 
 var HoverMenu = new Component({
-	extend: HTMLDivElement,
-	template: new Template('<div class="HoverMenu">{this.submenu}</div>'),
+	extend: Component,
+	template: new Template('<hover-menu>{this.submenu}</hover-menu>'),
+	properties: ['click-only'],
+	register: 'hover-menu',
 	
-	init: function(data) {
+	constructor: function() {
 		this.clickOnly = false;
 		this.createClosures('close', 'onKeyDown');
-		this.submenu = new HoverSubMenu();
+		this.submenu = this.find('menu') || new HoverSubMenu();
 		this.submenu.menu = this;
 		this.submenu.hide();
 		this.on('click', this.onClick);
-		Bind.property(this, 'data', this, 'submenu.data');
-		this.data = data;
 	},
 	
 	onKeyDown: function(event) {
@@ -93,10 +93,11 @@ var HoverMenu = new Component({
 });
 
 var HoverSubMenu = new Component({
-	extend: HTMLUListElement,
-	template: new Template('<ul class="HoverSubMenu">{this.items}</ul>'),
+	extend: Component,
+	template: new Template('<menu>{this.items}</menu>'),
+	register: 'hover-menu menu',
 	
-	init: function() {
+	constructor: function() {
 		this.createClosures('onChildrenChange', 'onDataChange');
 		this.items = [];
 		Bind.setter(this, 'data', this.onDataChange);
@@ -169,10 +170,11 @@ var HoverSubMenu = new Component({
 });
 
 var HoverMenuItem = new Component({
-	extend: HTMLLIElement,
-	template: new Template('<li class="HoverMenuItem">{this.label}{this.submenu}</li>'),
+	extend: Component,
+	template: new Template('<menu-item>{this.label}{this.submenu}</menu-item>'),
+	register: 'hover-menu menu-item',
 	
-	init: function(data) {
+	constructor: function(data) {
 		this._disabled = false;
 		this.createClosures('onChildrenChange', 'hovering', 'close');
 		this.on('click', this.select);

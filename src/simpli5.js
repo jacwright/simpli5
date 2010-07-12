@@ -28,7 +28,7 @@ var simpli5 = (function() {
 		 * Constructor
 		 */
 		constructor: function() {
-			document.addEventListener('DOMContentLoaded', onDomLoaded);
+			document.addEventListener('DOMContentLoaded', onDomLoaded, false);
 		},
 		
 		/**
@@ -79,13 +79,17 @@ var simpli5 = (function() {
 		mold: function(element) {
 			
 			for (var i in registry) {
-				element.findAll(i).makeClass(registry[i]);
+				var selector = i + ', [component="' + i + '"]';
+				try {
+					if (element.matches(selector)) element.makeClass(registry[i]);
+				} catch (e) {
+					if (e.name == 'SYNTAX_ERR') throw 'Invalid selector used to mold: ' + selector;
+					else throw e;
+				}
+				element.findAll(selector).makeClass(registry[i]);
 			}
 			
-			
-			
-			
-			
+			return element;
 		}
 	});
 	

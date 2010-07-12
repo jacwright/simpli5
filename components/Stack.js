@@ -28,9 +28,12 @@ var Stack = new Component({
 		
 		var event = new PageChangeEvent('change', this._selected, page);
 		
-		if (this._selected) this._selected.hide();
+		if (this._selected) {
+			this._selected.hide();
+			if (page) page.show(true);
+		} else if (page) page.show();
+		
 		this._selected = page;
-		if (page) page.show();
 		
 		this.dispatchEvent(event);
 	},
@@ -41,6 +44,11 @@ var Stack = new Component({
 	
 	set selectedIndex(value) {
 		this.selected = value;
+	},
+	
+	toggle: function() {
+		if (this.selectedIndex == this.children.length - 1) this.selectedIndex = 0;
+		else this.selectedIndex += 1;
 	},
 	
 	onChild: function(event) {

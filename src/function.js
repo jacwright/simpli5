@@ -19,6 +19,14 @@ Function.prototype.bind = function(obj) {
 	}
 };
 
+Function.prototype.boundTo = function(obj) {
+	if (!this.hasOwnProperty('__boundTo')) this.__boundTo = {};
+	
+	var objId = simpli5.getId(obj);
+	
+	return this.__boundTo[objId] || (this.__boundTo[objId] = this.bind(obj));
+};
+
 // starts calling a function at regular intervals
 Function.prototype.start = function(frequency) {
 	if (this.timer) return;

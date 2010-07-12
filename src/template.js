@@ -34,7 +34,7 @@ var Template = new Class({
 				compile = param;
 			}
 		}
-		this.html = lines.join('') || '';
+		this.html = lines.join('').replace(/%7B/g, '{').replace(/%7D/g, '}') || '';
 		if (compile) this.compile();
 		return this;
 	},
@@ -57,13 +57,13 @@ var Template = new Class({
 	
 	compile: function() {
 		try {
-			var func = "function(data) { return '" +
+			var func = "(function(data) { return '" +
 				this.html.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
 						.replace(this.placeholdersExp, this.compileReplace) +
-			"'; }";
-			this.compiled = eval('(' + func + ')');
+			"'; })";
+			this.compiled = eval(func);
 		} catch(e) {
 			throw 'Error creating template "' + e + '" for template:\n' + this.html;
 		}
@@ -72,16 +72,27 @@ var Template = new Class({
 	
 	create: function(data) {
 		var html = this.apply(data);
-		return toFragment(html).firstChild;
+		return toElement(html);
+	},
+	
+	createMolded: function(data) {
+		return simpli5.mold(this.create(data));
 	},
 	
 	// creates the template binding all {data.*} expressions to the top-level element
 	createBound: function(data) {
-		var topElement = toFragment(this.html).firstChild;
-		data = data || {};
+		if (this.compiledBound) {
+			return this.compiledBound(data);
+		}
+		
+		var topElement = toElement(this.html);
+		
+		simpli5.mold(topElement);
 		
 		// if there are no binding expressions, just return the html
-		if (!this.html.match(this.placeholdersExp)) return topElement;
+		if (!this.html.match(this.placeholdersExp)) {
+			return topElement;
+		}
 		
 		var nodes = topElement.findAll('*');
 		nodes.unshift(topElement);
@@ -97,6 +108,11 @@ var Template = new Class({
 		while ( (match = this.attributeExp.exec(this.html)) ) {
 			var attr = match[1];
 			var value = match[2];
+			
+			if (data == null) {
+				value = value.replace(/\bdata\b/g, 'this.data');
+			}
+			
 			var element = null, index = this.attributeExp.lastIndex;
 			for (var i = 0; i < nodeIndexes.length; i++) {
 				if (index < nodeIndexes[i]) {
@@ -106,12 +122,7 @@ var Template = new Class({
 			}
 			if (!element) element = nodes[nodes.length - 1];
 			
-			setter = eval("(function() { element.attr('" + attr + "', '" +
-				value.replace(this.slashesExp, '\\\\')
-						.replace(this.fixCarriageExp, '\\n')
-						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
-			"'); })").bind(topElement);
+			setter = this.createAttributeSetter(attr, value, topElement, element);
 			
 			// pull out binding expressions, there may be more than one
 			while ( (match = this.placeholdersExp.exec(value)) ) {
@@ -131,6 +142,11 @@ var Template = new Class({
 		while ( (match = this.innerContentExp.exec(this.html)) ) {
 			var content = match[1];
 			var element = null, index = this.innerContentExp.lastIndex;
+			
+			if (data == null) {
+				content = content.replace(/\bdata\b/g, 'this.data');
+			}
+			
 			for (var i = 0; i < nodeIndexes.length; i++) {
 				if (index < nodeIndexes[i]) {
 					element = nodes[i - 1];
@@ -139,12 +155,7 @@ var Template = new Class({
 			}
 			if (!element) element = nodes[nodes.length - 1];
 			
-			setter = eval("(function() { element.html(['" +
-				content.replace(this.slashesExp, '\\\\')
-						.replace(this.fixCarriageExp, '\\n')
-						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplaceArray) +
-			"']); })").bind(topElement);
+			setter = this.createContentSetter(content, topElement, element);
 			
 			// pull out binding expressions, there may be more than one
 			while ( (match = this.placeholdersExp.exec(content)) ) {
@@ -155,6 +166,7 @@ var Template = new Class({
 					if (match[4]) continue; // matched a function, don't bind
 					var obj = match[2] == 'this' ? topElement : data;
 					var prop = match[3];
+					if (!data)
 					Bind.setter(obj, prop, setter);
 				}
 			}
@@ -162,5 +174,136 @@ var Template = new Class({
 		}
 		
 		return topElement;
+	},
+	
+	createAttributeSetter: function(attr, value, topElement, element) {
+		return eval("(function() { try { element.attr('" + attr + "', '" +
+				value.replace(this.slashesExp, '\\\\')
+						.replace(this.fixCarriageExp, '\\n')
+						.replace(this.escapeSingleExp, "\\'")
+						.replace(this.placeholdersExp, this.compileReplace) +
+			"'); } catch(e) { element.attr('" + attr + "', ''); } })").bind(topElement);
+	},
+	
+	createContentSetter: function(content, topElement, element) {
+		return eval("(function() { try { element.html(['" +
+				content.replace(this.slashesExp, '\\\\')
+						.replace(this.fixCarriageExp, '\\n')
+						.replace(this.escapeSingleExp, "\\'")
+						.replace(this.placeholdersExp, this.compileReplaceArray) +
+			"']); } catch(e) { element.html(''); } })").bind(topElement);
+	},
+	
+	compileBound: function() {
+		if (!this.html.match(this.placeholdersExp)) {
+			this.compiledBound = this.createMolded;
+			return;
+		}
+		
+		var sections = "", section, count = 0, i, index, finalIndex, code, obj, prop;
+		
+		var nodes = toFragment(this.html).findAll('*');
+		var nodeIndexes = [];
+		while (this.tagStartExp.test(this.html)) {
+			nodeIndexes.push(this.tagStartExp.lastIndex - 2); // the start of the tag
+		}
+		
+		// find all the attributes and content {} and set up the bindings
+		var match, setter;
+		
+		// find all attributes that have binding expressions
+		while ( (match = this.attributeExp.exec(this.html)) ) {
+			var attr = match[1];
+			var value = match[2];
+			
+			index = this.attributeExp.lastIndex;
+			finalIndex = -1;
+			for (var i = 0; i < nodeIndexes.length; i++) {
+				if (index < nodeIndexes[i]) {
+					finalIndex = i - 1;
+					break;
+				}
+			}
+			if (finalIndex == -1) finalIndex = nodes.length - 1;
+			
+			count++;
+			
+			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
+			"		try {\n" +
+			"			element" + count + ".attr('" + attr + "', '" + value.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplace) + "');\n" +
+			"		} catch(e) {\n" +
+			"			element" + count + ".attr('" + attr + "', '');\n" +
+			"		}\n" +
+			"	});\n";
+			
+			sections += section.replace(/this/g, 'topElement').replace(/(^|[^.])data/g, '$1host.data');
+			
+			// pull out binding expressions, there may be more than one
+			while ( (match = this.placeholdersExp.exec(value)) ) {
+				code = match[1];
+				// find each property that 
+				while ( (match = this.propExp.exec(code)) ) {
+					if (match[4]) continue; // matched a function, don't bind
+					obj = match[2] == 'this' ? 'topElement' : 'data';
+					prop = match[2] == 'this' ? match[3] : 'data.' + match[3];
+					sections += "\tBind.setter(" + obj + ", '" + prop + "', setter" + count + ");\n";
+				}
+			}
+			sections += "\tsetter" + count + "();\n";
+		}
+		
+		// find all inner text that have binding expressions
+		while ( (match = this.innerContentExp.exec(this.html)) ) {
+			var content = match[1];
+			
+			index = this.innerContentExp.lastIndex;
+			finalIndex = -1;
+			for (i = 0; i < nodeIndexes.length; i++) {
+				if (index < nodeIndexes[i]) {
+					finalIndex = i - 1;
+					break;
+				}
+			}
+			if (finalIndex == -1) finalIndex = nodes.length - 1;
+			
+			count++;
+			
+			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
+			"		try {\n" +
+			"			element" + count + ".html(['" + content.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplaceArray) + "']);\n" +
+			"		} catch(e) {\n" +
+			"			element" + count + ".html('');\n" +
+			"		}\n" +
+			"	});\n";
+			
+			sections += section.replace(/this/g, 'topElement').replace(/(^|[^.])data/g, '$1host.data');
+			
+			// pull out binding expressions, there may be more than one
+			while ( (match = this.placeholdersExp.exec(content)) ) {
+				code = match[1];
+				
+				// find each property that 
+				while ( (match = this.propExp.exec(code)) ) {
+					if (match[4]) continue; // matched a function, don't bind
+					obj = match[2] == 'this' ? 'topElement' : 'host';
+					prop = match[2] == 'this' ? match[3] : 'data.' + match[3];
+					sections += "\tBind.setter(" + obj + ", '" + prop + "', setter" + count + ");\n";
+				}
+			}
+			sections += "\tsetter" + count + "();\n";
+		}
+		
+		var func = "(function(data) {\n" +
+		"	var fragment = toFragment(this.html), topElement = fragment.firstChild.nodeName ? fragment.firstChild : fragment.firstChild.nextSibling, nodes = fragment.findAll('*'), host = topElement;\n" +
+		"	simpli5.mold(topElement);\n" +
+		"	if (data) {\n" +
+		"		host = {data: data};\n" +
+		"	} else {\n" +
+		"		data = topElement;\n" +
+		"	}\n" + sections + "\n" +
+		"	return topElement;\n" +
+		"})";
+		
+		this.compiledBound = eval(func);
 	}
 });

@@ -35,10 +35,12 @@ function isNumeric(value) {
 	return typeof value == 'number' || (typeof value == 'string' && parseFloat(value).toString() == String.trim(value));
 }
 
-var toFragment = (function() {
+var toFragment, fromElement;
+
+(function() {
 	var div = document.createElement('div');
 	
-	function toFragment(html) {
+	toFragment = function(html) {
 		var frag = document.createDocumentFragment();
 		
 		if (html instanceof Node) {
@@ -54,9 +56,14 @@ var toFragment = (function() {
 			}
 		}
 		return frag;
-	}
+	};
 	
-	return toFragment;
+	fromElement = function(element) {
+		div.appendChild(element.cloneNode(true));
+		var outerHTML = div.innerHTML;
+		div.innerHTML = '';
+		return outerHTML;
+	}
 })();
 
 

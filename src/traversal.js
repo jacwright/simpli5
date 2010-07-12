@@ -29,6 +29,8 @@ extend(Element.prototype, {
 
 HTMLDocument.prototype.find = Element.prototype.find;
 HTMLDocument.prototype.findAll = Element.prototype.findAll;
+DocumentFragment.prototype.find = Element.prototype.find;
+DocumentFragment.prototype.findAll = Element.prototype.findAll;
 
 ElementArray.map({
 	find: 'returnFirst',

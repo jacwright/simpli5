@@ -100,12 +100,7 @@ var EventDispatcher = new Class({
 			bound = this;
 		}
 		
-		if (!listener.hasOwnProperty('boundTo')) {
-			listener.__boundTo = {};
-		}
-		
-		var objId = simpli5.getId(bound);
-		listener = listener.__boundTo[objId] || (listener.__boundTo[objId] = listener.bind(this));
+		listener = listener.boundTo(this);
 		
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.addEventListener(types[i], listener, false);

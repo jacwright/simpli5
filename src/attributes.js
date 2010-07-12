@@ -51,7 +51,6 @@ extend(HTMLElement.prototype, {
 				value += 'px';
 			}
 			this.style[name] = value;
-			return this;
 		} else {
 			value = this.style[name];
 			if (!value) {
@@ -61,6 +60,7 @@ extend(HTMLElement.prototype, {
 			}
 			return value;
 		}
+		return this;
 	},
 	removeAttr: function(name) {
 		this.removeAttribute(name);
@@ -130,11 +130,34 @@ extend(HTMLElement.prototype, {
 			this.value = value;
 		}
 	},
-	show: function() {
-		this.css('display', '');
+	show: function(animate, callback) {
+		if (animate && this.css('-webkit-transition-property').indexOf('opacity') != -1) {
+			var me = this, onDone;
+			this.css('opacity', 0).css('display', '');
+			setTimeout(function() {me.css('opacity', 1);}, 0);
+			this.on('webkitTransitionEnd,transitionend', onDone = function() {
+				me.un('webkitTransitionEnd,transitionend', onDone);
+				me.css('opacity', '');
+				if (callback) callback();
+			});
+			return this;
+		} else {
+			return this.css('display', '');
+		}
 	},
-	hide: function() {
-		this.css('display', 'none');
+	hide: function(animate, callback) {
+		if (animate && this.css('-webkit-transition-property').indexOf('opacity') != -1) {
+			var me = this, onDone;
+			this.css('opacity', 0);
+			this.on('webkitTransitionEnd,transitionend', onDone = function() {
+				me.un('webkitTransitionEnd,transitionend', onDone);
+				me.css('opacity', '').css('display', 'none');
+				if (callback) callback();
+			});
+			return this;
+		} else {
+			return this.css('display', 'none');
+		}
 	},
 	visible: function() {
 		return this.rect().width != 0;
