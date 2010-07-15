@@ -29,7 +29,7 @@ var ElementArray = new Class({
 	splice: function(startIndex, howMany, args) {
 		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray);
 	},
-
+	
 	/**
 	 * Merges an Element, Array of Elements, or NodeList of Elements into this ElementArray.
 	 * 
@@ -37,11 +37,7 @@ var ElementArray = new Class({
 	 */
 	merge: function(elems) {
 		if (elems == null) return;
-		if ( !(elems instanceof Array) && ('length' in elems)) {
-			elems = toArray(elems);
-		} else {
-			elems = [elems];
-		}
+		elems = toArray(elems);
 		this.push.apply(this, elems);
 	},
 

@@ -51,8 +51,14 @@ extend(HTMLElement.prototype, {
 			rect = this.getBoundingClientRect();
 			var leftOffset = this.offsetLeft - rect.left;
 			var topOffset = this.offsetTop - rect.top;
-			if ('left' in value) this.css('left', value.left + leftOffset);
-			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('left' in value) this.css('left', value.left += leftOffset);
+			if ('top' in value) this.css('top', value.top += topOffset);
+			if ('top' in value || 'left' in value) {
+				// fix for margins
+				rect = this.getBoundingClientRect();
+				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));
+				if ('top' in value) this.css('top', value.top - (rect.top + topOffset - value.top));
+			}
 			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
 			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
