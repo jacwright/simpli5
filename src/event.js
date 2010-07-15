@@ -1,4 +1,12 @@
 
+Event.prevent = function(event) {
+	event.preventDefault();
+};
+Event.stop = function(event) {
+	event.preventDefault();
+	event.stopPropagation();
+};
+
 var CustomEvent = new Class({
 	extend: Event,
 	constructor: function(type, bubbles, cancelable) {
@@ -43,6 +51,18 @@ var DataEvent = new Class({
 	}
 });
 
+var ChangeEvent = new Class({
+	extend: CustomEvent,
+	
+	constructor: function(type, oldValue, newValue) {
+		var evt = CustomEvent.call(this, type); // super('change');
+		evt.oldValue = oldValue;
+		evt.newValue = newValue;
+		return evt;
+	}
+});
+
+
 var ArrayChangeEvent = new Class({
 	extend: Event,
 	constructor: function(action, startIndex, endIndex, items) {
@@ -53,6 +73,19 @@ var ArrayChangeEvent = new Class({
 		evt.startIndex = startIndex;
 		evt.endIndex = endIndex;
 		evt.items = items;
+		return evt;
+	}
+});
+
+
+var ErrorEvent = new Class({
+	extend: Event,
+	constructor: function(type, code, msg) {
+		var evt = document.createEvent('Events');
+		evt.initEvent(type, false, false);
+		Class.makeClass(evt, this.constructor, true);
+		evt.code = code;
+		evt.msg = msg;
 		return evt;
 	}
 });
@@ -73,49 +106,39 @@ var EventDispatcher = new Class({
 	},
 	addEventListener: function(type, listener) {
 		if (typeof listener != 'function') throw 'Listener must be a function';
-		if (!this.events) {
-			this.events = {};
+		if (!this.__events) {
+			this.__events = {};
 		}
-		var events = this.events[type];
+		var events = this.__events[type];
 		if (!events) {
-			this.events[type] = events = [];
+			this.__events[type] = events = [];
 		} else if (events.indexOf(listener) != -1) {
 			return; // already added
 		}
 		events.push(listener);
 	},
 	removeEventListener: function(type, listener) {
-		if (!this.events) return;
-		var events = this.events[type];
+		if (!this.__events) return;
+		var events = this.__events[type];
 		if (!events) return;
 		var index = events.indexOf(listener);
 		if (index != -1) {
 			events.splice(index, 1);
 		}
 	},
-	on: function(type, bound, listener) {
+	hasEventListener: function(type) {
+		return (this.__events && this.__events[type] && this.__events[type].length);
+	},
+	on: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
-		if (!listener) {
-			listener = bound;
-			bound = this;
-		}
-		
-		listener = listener.boundTo(this);
 		
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.addEventListener(types[i], listener, false);
 		};
 		return this;
 	},
-	un: function(type, bound, listener) {
+	un: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
-		if (!listener) {
-			listener = bound;
-			bound = this;
-		}
-		
-		var objId = simpli5.getId(bound);
-		listener = listener.__boundTo ? listener.__boundTo[objId] || listener : listener;
 		
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.removeEventListener(types[i], listener, false);
@@ -123,25 +146,51 @@ var EventDispatcher = new Class({
 		return this;
 	},
 	dispatchEvent: function(event) {
-		if (!this.events) return;
-		var events = this.events[event.type];
+		if (!this.__events) return;
+		var events = this.__events[event.type];
 		if (!events) return;
 		for (var i = 0, l = events.length; i < l; i++) {
 			events[i].call(this, event);
 		}
 	},
 	dispatch: function(eventType) {
-		if (!this.events || !this.events[eventType] || !this.events[eventType].length) return;
+		if (!this.__events || !this.__events[eventType] || !this.__events[eventType].length) return;
 		
 		this.dispatchEvent(new CustomEvent(eventType));
 	}
 });
 
-extend(Node.prototype, {
-	on: EventDispatcher.prototype.on,
-	un: EventDispatcher.prototype.un,
-	createClosures: EventDispatcher.prototype.createClosures
-});
+(function() {
+	var add = Node.prototype.addEventListener, remove = Node.prototype.removeEventListener;
+	extend(Node.prototype, {
+		addEventListener: function(type, listener, capture) {
+			if (!this.__events) {
+				this.__events = {};
+			}
+			var events = this.__events[type];
+			if (!events) {
+				this.__events[type] = events = [];
+			} else if (events.indexOf(listener) == -1) {
+				events.push(listener);
+			}
+			add.call(this, type, listener, capture || false);
+		},
+		removeEventListener: function(type, listener, capture) {
+			if (!this.__events) return;
+			var events = this.__events[type];
+			if (!events) return;
+			var index = events.indexOf(listener);
+			if (index != -1) {
+				events.splice(index, 1);
+			}
+			remove.call(this, type, listener, capture || false);
+		},
+		hasEventListener: EventDispatcher.prototype.hasEventListener,
+		on: EventDispatcher.prototype.on,
+		un: EventDispatcher.prototype.un,
+		createClosures: EventDispatcher.prototype.createClosures
+	});
+})();
 extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
