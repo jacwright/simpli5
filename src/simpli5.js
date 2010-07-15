@@ -70,6 +70,10 @@ var simpli5 = (function() {
 		getRegistered: function(selector) {
 			return registry[selector];
 		},
+
+		selector: function(selector) {
+			return selector + ', [component="' + selector + '"]';
+		},
 		
 		/**
 		 * Initialize all the components and set up all the data-bindings.
@@ -79,7 +83,7 @@ var simpli5 = (function() {
 		mold: function(element) {
 			
 			for (var i in registry) {
-				var selector = i + ', [component="' + i + '"]';
+				var selector = this.selector(i);
 				try {
 					if (element.matches(selector)) element.makeClass(registry[i]);
 				} catch (e) {

@@ -115,6 +115,7 @@ extend(Class, {
 		var args = toArray(arguments);
 		args.splice(0, 3);
 		if (!skipConstructor) classType.apply(instance, args);
+		return instance;
 	},
 	insert: function(instance, classType) {
 		var proto = {};
@@ -125,6 +126,7 @@ extend(Class, {
 		}
 		proto.__proto__ = instance.__proto__;
 		instance.__proto__ = proto;
+		return instance;
 	}
 });
 
@@ -225,7 +227,7 @@ var ElementArray = new Class({
 	splice: function(startIndex, howMany, args) {
 		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray);
 	},
-
+	
 	/**
 	 * Merges an Element, Array of Elements, or NodeList of Elements into this ElementArray.
 	 * 
@@ -233,11 +235,7 @@ var ElementArray = new Class({
 	 */
 	merge: function(elems) {
 		if (elems == null) return;
-		if ( !(elems instanceof Array) && ('length' in elems)) {
-			elems = toArray(elems);
-		} else {
-			elems = [elems];
-		}
+		elems = toArray(elems);
 		this.push.apply(this, elems);
 	},
 
@@ -367,6 +365,14 @@ extend(ElementArray.map, {
 	}
 });
 
+Event.prevent = function(event) {
+	event.preventDefault();
+};
+Event.stop = function(event) {
+	event.preventDefault();
+	event.stopPropagation();
+};
+
 var CustomEvent = new Class({
 	extend: Event,
 	constructor: function(type, bubbles, cancelable) {
@@ -411,6 +417,18 @@ var DataEvent = new Class({
 	}
 });
 
+var ChangeEvent = new Class({
+	extend: CustomEvent,
+	
+	constructor: function(type, oldValue, newValue) {
+		var evt = CustomEvent.call(this, type); // super('change');
+		evt.oldValue = oldValue;
+		evt.newValue = newValue;
+		return evt;
+	}
+});
+
+
 var ArrayChangeEvent = new Class({
 	extend: Event,
 	constructor: function(action, startIndex, endIndex, items) {
@@ -421,6 +439,19 @@ var ArrayChangeEvent = new Class({
 		evt.startIndex = startIndex;
 		evt.endIndex = endIndex;
 		evt.items = items;
+		return evt;
+	}
+});
+
+
+var ErrorEvent = new Class({
+	extend: Event,
+	constructor: function(type, code, msg) {
+		var evt = document.createEvent('Events');
+		evt.initEvent(type, false, false);
+		Class.makeClass(evt, this.constructor, true);
+		evt.code = code;
+		evt.msg = msg;
 		return evt;
 	}
 });
@@ -441,49 +472,39 @@ var EventDispatcher = new Class({
 	},
 	addEventListener: function(type, listener) {
 		if (typeof listener != 'function') throw 'Listener must be a function';
-		if (!this.events) {
-			this.events = {};
+		if (!this.__events) {
+			this.__events = {};
 		}
-		var events = this.events[type];
+		var events = this.__events[type];
 		if (!events) {
-			this.events[type] = events = [];
+			this.__events[type] = events = [];
 		} else if (events.indexOf(listener) != -1) {
 			return; // already added
 		}
 		events.push(listener);
 	},
 	removeEventListener: function(type, listener) {
-		if (!this.events) return;
-		var events = this.events[type];
+		if (!this.__events) return;
+		var events = this.__events[type];
 		if (!events) return;
 		var index = events.indexOf(listener);
 		if (index != -1) {
 			events.splice(index, 1);
 		}
 	},
-	on: function(type, bound, listener) {
+	hasEventListener: function(type) {
+		return (this.__events && this.__events[type] && this.__events[type].length);
+	},
+	on: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
-		if (!listener) {
-			listener = bound;
-			bound = this;
-		}
-		
-		listener = listener.boundTo(this);
 		
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.addEventListener(types[i], listener, false);
 		};
 		return this;
 	},
-	un: function(type, bound, listener) {
+	un: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
-		if (!listener) {
-			listener = bound;
-			bound = this;
-		}
-		
-		var objId = simpli5.getId(bound);
-		listener = listener.__boundTo ? listener.__boundTo[objId] || listener : listener;
 		
 		for (var i = 0, l = types.length; i < l; i++) {
 			this.removeEventListener(types[i], listener, false);
@@ -491,25 +512,51 @@ var EventDispatcher = new Class({
 		return this;
 	},
 	dispatchEvent: function(event) {
-		if (!this.events) return;
-		var events = this.events[event.type];
+		if (!this.__events) return;
+		var events = this.__events[event.type];
 		if (!events) return;
 		for (var i = 0, l = events.length; i < l; i++) {
 			events[i].call(this, event);
 		}
 	},
 	dispatch: function(eventType) {
-		if (!this.events || !this.events[eventType] || !this.events[eventType].length) return;
+		if (!this.__events || !this.__events[eventType] || !this.__events[eventType].length) return;
 		
 		this.dispatchEvent(new CustomEvent(eventType));
 	}
 });
 
-extend(Node.prototype, {
-	on: EventDispatcher.prototype.on,
-	un: EventDispatcher.prototype.un,
-	createClosures: EventDispatcher.prototype.createClosures
-});
+(function() {
+	var add = Node.prototype.addEventListener, remove = Node.prototype.removeEventListener;
+	extend(Node.prototype, {
+		addEventListener: function(type, listener, capture) {
+			if (!this.__events) {
+				this.__events = {};
+			}
+			var events = this.__events[type];
+			if (!events) {
+				this.__events[type] = events = [];
+			} else if (events.indexOf(listener) == -1) {
+				events.push(listener);
+			}
+			add.call(this, type, listener, capture || false);
+		},
+		removeEventListener: function(type, listener, capture) {
+			if (!this.__events) return;
+			var events = this.__events[type];
+			if (!events) return;
+			var index = events.indexOf(listener);
+			if (index != -1) {
+				events.splice(index, 1);
+			}
+			remove.call(this, type, listener, capture || false);
+		},
+		hasEventListener: EventDispatcher.prototype.hasEventListener,
+		on: EventDispatcher.prototype.on,
+		un: EventDispatcher.prototype.un,
+		createClosures: EventDispatcher.prototype.createClosures
+	});
+})();
 extend(window, {
 	on: EventDispatcher.prototype.on,
 	un: EventDispatcher.prototype.un
@@ -639,6 +686,10 @@ var simpli5 = (function() {
 		getRegistered: function(selector) {
 			return registry[selector];
 		},
+
+		selector: function(selector) {
+			return selector + ', [component="' + selector + '"]';
+		},
 		
 		/**
 		 * Initialize all the components and set up all the data-bindings.
@@ -648,7 +699,7 @@ var simpli5 = (function() {
 		mold: function(element) {
 			
 			for (var i in registry) {
-				var selector = i + ', [component="' + i + '"]';
+				var selector = this.selector(i);
 				try {
 					if (element.matches(selector)) element.makeClass(registry[i]);
 				} catch (e) {
@@ -671,7 +722,7 @@ extend(Node.prototype, {
 	parent: function(selector) {
 		var node = this.parentNode;
 		while (node) {
-			if (node.matches(selector)) return node;
+			if ('matches' in node && node.matches(selector)) return node;
 			node = node.parentNode;
 		}
 		return null;
@@ -690,8 +741,14 @@ extend(Element.prototype, {
 	}),
 	getChildren: function(selector) {
 		var children = new ElementArray(this.children);
-		if (selector) children.filterBy(selector)
+		if (selector) return children.filterBy(selector);
 		return children;
+	},
+	siblings: function(selector) {
+		var sibs = new ElementArray(this.parentNode.children);
+		sibs.splice(sibs.indexOf(this), 1);
+		if (selector) return sibs.filterBy(selector);
+		return sibs;
 	}
 });
 
@@ -943,8 +1000,14 @@ extend(HTMLElement.prototype, {
 			rect = this.getBoundingClientRect();
 			var leftOffset = this.offsetLeft - rect.left;
 			var topOffset = this.offsetTop - rect.top;
-			if ('left' in value) this.css('left', value.left + leftOffset);
-			if ('top' in value) this.css('top', value.top + topOffset);
+			if ('left' in value) this.css('left', value.left += leftOffset);
+			if ('top' in value) this.css('top', value.top += topOffset);
+			if ('top' in value || 'left' in value) {
+				// fix for margins
+				rect = this.getBoundingClientRect();
+				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));
+				if ('top' in value) this.css('top', value.top - (rect.top + topOffset - value.top));
+			}
 			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
 			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
 			if ('width' in value) this.outerWidth(value.width);
@@ -978,9 +1041,15 @@ extend(HTMLElement.prototype, {
 		}
 		return this;
 	},
+	remove: function() {
+		if (this.parentNode) {
+			this.parentNode.removeChild(this);
+		}
+		return this;
+	},
 	after: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.parentNode.insertBefore(frag, this.nextSibling);
 		return nodes;
 	},
@@ -993,13 +1062,13 @@ extend(HTMLElement.prototype, {
 	},
 	before: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.parentNode.insertBefore(frag, this);
 		return nodes;
 	},
 	prepend: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.insertBefore(frag, this.firstChild);
 		return nodes;
 	}
@@ -1009,6 +1078,7 @@ extend(HTMLElement.prototype, {
 ElementArray.map({
 	makeClass: 'forEach',
 	cleanWhitespace: 'forEach',
+	remove: 'forEach',
 	after: 'merge',
 	append: 'merge',
 	before: 'merge',
@@ -1399,7 +1469,6 @@ BindableArray = new Class({
 
 var Template = new Class({
 	constructor: function (html) {
-		this.compiled = null;
 		if (arguments.length) {
 			this.set.apply(this, arguments);
 		}
@@ -1409,7 +1478,7 @@ var Template = new Class({
 	slashesExp: /\\/g,
 	fixCarriageExp: /(\r\n|\n)/g,
 	escapeSingleExp: /'/g,
-	unEscapeSingleExp: /\\'/g,
+	unEscapeEscapesExp: /\\('|\\)/g,
 	tagStartExp: /<\w/g,
 	attributeExp: /([-\w]+)="([^"]*\{[^\}]*\}[^"]*)"/g,
 	innerContentExp: />([^<]*\{[^\}]*\}[^<]*)</g,
@@ -1420,8 +1489,9 @@ var Template = new Class({
 	},
 	
 	set: function (html) {
-		var compile = false;
-		var lines = [];
+		delete this.apply; // delete cached version if exists
+		delete this.createBound; // delete cached version if exists
+		var lines = [], compile;
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			var param = arguments[i];
 			if (param instanceof Array) {
@@ -1438,19 +1508,18 @@ var Template = new Class({
 	},
 	
     apply: function(data) {
-		if (this.compiled) return this.compiled(data);
 	    var replace = this.replace.bind(this, data);
         return this.html.replace(this.placeholdersExp, replace);
     },
 	
 	compileReplace: function(match, code) {
 		// slashes have been added for all ', remove for code
-		return "' + ((" + code.replace(this.unEscapeSingleExp, "'") + ") || '') + '";
+		return "' + ((" + code.replace(this.unEscapeEscapesExp, "$1") + ") || '') + '";
 	},
 	
 	compileReplaceArray: function(match, code) {
 		// slashes have been added for all ', remove for code
-		return "', ((" + code.replace(this.unEscapeSingleExp, "'") + ") || ''), '";
+		return "', ((" + code.replace(this.unEscapeEscapesExp, "$1") + ") || ''), '";
 	},
 	
 	compile: function() {
@@ -1459,9 +1528,9 @@ var Template = new Class({
 				this.html.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
+						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'; })";
-			this.compiled = eval(func);
+			this.apply = eval(func);
 		} catch(e) {
 			throw 'Error creating template "' + e + '" for template:\n' + this.html;
 		}
@@ -1479,10 +1548,6 @@ var Template = new Class({
 	
 	// creates the template binding all {data.*} expressions to the top-level element
 	createBound: function(data) {
-		if (this.compiledBound) {
-			return this.compiledBound(data);
-		}
-		
 		var topElement = toElement(this.html);
 		
 		simpli5.mold(topElement);
@@ -1579,7 +1644,7 @@ var Template = new Class({
 				value.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
+						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'); } catch(e) { element.attr('" + attr + "', ''); } })").bind(topElement);
 	},
 	
@@ -1588,13 +1653,13 @@ var Template = new Class({
 				content.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplaceArray) +
+						.replace(this.placeholdersExp, this.compileReplaceArray.boundTo(this)) +
 			"']); } catch(e) { element.html(''); } })").bind(topElement);
 	},
 	
 	compileBound: function() {
 		if (!this.html.match(this.placeholdersExp)) {
-			this.compiledBound = this.createMolded;
+			this.createBound = this.createMolded;
 			return;
 		}
 		
@@ -1628,7 +1693,7 @@ var Template = new Class({
 			
 			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
 			"		try {\n" +
-			"			element" + count + ".attr('" + attr + "', '" + value.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplace) + "');\n" +
+			"			element" + count + ".attr('" + attr + "', '" + value.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplace.boundTo(this)) + "');\n" +
 			"		} catch(e) {\n" +
 			"			element" + count + ".attr('" + attr + "', '');\n" +
 			"		}\n" +
@@ -1668,7 +1733,7 @@ var Template = new Class({
 			
 			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
 			"		try {\n" +
-			"			element" + count + ".html(['" + content.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplaceArray) + "']);\n" +
+			"			element" + count + ".html(['" + content.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplaceArray.boundTo(this)) + "']);\n" +
 			"		} catch(e) {\n" +
 			"			element" + count + ".html('');\n" +
 			"		}\n" +
@@ -1702,95 +1767,53 @@ var Template = new Class({
 		"	return topElement;\n" +
 		"})";
 		
-		this.compiledBound = eval(func);
+		this.createBound = eval(func);
 	}
 });
+var Component, Configuration;
 
-var Component = new Class({
-	extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
-	
-	constructor: function(implementation) {
-		// call the constructor inside our custom constructor
-		var constructor = implementation.constructor;
-		
-		// if not component, implement component functionality
-		var type = implementation.extend;
-		while (type && type != Component) {
-			type = type.prototype.__proto__ ? type.prototype.__proto__.constructor : null;
-		}
-		if (type != Component) {
-			var prev = implementation.implement ? implementation.implement : [];
-			implementation.implement = prev instanceof Array ? prev.concat([Component]) : [prev, Component];
-		}
-		
-		if (implementation.template && !implementation.template.compiledBound) implementation.template.compileBound();
-		
-		// register
-		var register = implementation.register;
-		delete implementation.register;
-		
-		implementation.constructor = function(data) { // the data object for an itemTemplate
-			var element = this;
-			this.data = data;
-			
-			if (!element.tagName && this.template) {
-				element = this.template.createBound();
-				element.__proto__ = this.__proto__;
-				if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
-			}
-			
-			element.initialize(); // from Component
-			constructor.apply(element, arguments);
-			return element;
-		}
-		
-		if (register) {
-			simpli5.register(register, implementation.constructor);
-		}
-		
-		return new Class(implementation);
-	},
-	
-	initialize: function() {
-		var i, l, evts = this.events, attrs = this.attributes;
-		
-		// setup custom events
-		this.initializeEvents();
-		
-		// setup custom attributes
-		this.initializeAttributes();
-	},
-	
-	initializeEvents: function() {
-		var evts = this.events;
+(function() {
+
+	/**
+	 * Initialize the events for an element
+	 * @param obj
+	 * @param element
+	 */
+	function initializeEvents(obj, element) {
+		var evts = obj.events;
 		 
 		if (!evts) return;
 		
 		for (var i = 0, l = evts.length; i < l; i++) {
 			var evt = evts[i];
-			if (this.hasAttribute('on' + evt)) {
+			if (element.hasAttribute('on' + evt)) {
 				try {
-					var listener = eval('(function(event) {' + this.getAttribute('on' + evt) + '})');
+					var listener = eval('(function(event) {' + element.getAttribute('on' + evt) + '})');
 				} catch(e) {}
-				if (listener) this.on(evt, this, listener);
+				if (listener) obj.on(evt, this, listener);
 			}
 		}
-	},
+	}
 	
-	initializeAttributes: function() {
-		var attrs = this.properties;
+	/**
+	 * Initialize the properties from the attributes for an element
+	 * @param obj
+	 * @param element
+	 */
+	function initializeAttributes(obj, element) {
+		var attrs = obj.properties;
 		
 		if (!attrs) return;
 		
 		for (var i = 0, l = attrs.length; i < l; i++) {
-			var attr = attrs[i], prop = this.camelize(attr);
-			if (this.hasAttribute(attr)) {
-				this[prop] = this.getValue(prop, this.getAttribute(attr));
+			var attr = attrs[i], prop = camelize(attr);
+			if (element.hasAttribute(attr)) {
+				obj[prop] = getValue(prop, element.getAttribute(attr));
 			}
 		}
-	},
+	}
 	
-	camelize: function(str) {
+	function camelize(str) {
 		var parts = str.split('-'), len = parts.length;
 		if (len == 1) return parts[0];
 		
@@ -1802,9 +1825,9 @@ var Component = new Class({
 			camelized += parts[i].charAt(0).toUpperCase() + parts[i].substring(1);
 		
 		return camelized;
-	},
+	}
 	
-	getValue: function(prop, value) {
+	function getValue(prop, value) {
 		var parsed;
 		if (value.indexOf('{') == 0 && value.lastIndexOf('}') == value.length - 1) {
 			// handle a bound value
@@ -1825,24 +1848,82 @@ var Component = new Class({
 		return value;
 	}
 	
-});
-
-
-
-
-var Button = new Component({
-	extend: HTMLButtonElement,
-	template: new Template('<button></button>'),
-	constructor: function() {
+	
+	
+	Component = new Class({
+		extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
 		
-	},
-	get label() {
-		return this.text();
-	},
-	set label(value) {
-		this.text(value);
-	}
-});
+		constructor: function(implementation) {
+			// call the constructor inside our custom constructor
+			var constructor = implementation.constructor;
+			
+			if (implementation.template && !implementation.template.compiledBound) implementation.template.compileBound();
+			
+			// register
+			var register = implementation.register;
+			delete implementation.register;
+			
+			// custom constructor
+			implementation.constructor = function(data) { // the data object for an itemTemplate
+				var element = this;
+				this.data = data;
+				
+				if (!element.tagName && this.template) {
+					element = this.template.createBound();
+					element.__proto__ = this.__proto__;
+					if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
+				}
+				
+				constructor.apply(element, arguments);
+				initializeEvents(element, element);
+				initializeAttributes(element, element);
+				if ('init' in element) element.init();
+				return element;
+			}
+			
+			if (register) {
+				simpli5.register(register, implementation.constructor);
+			}
+			
+			return new Class(implementation);
+		}
+		
+	});
+	
+	/**
+	 * Elements which represent objects and not actual visual pieces of the display. The
+	 * HTMLElement will be removed after the configuration is saved and set up appropriately.
+	 */
+	Configuration = new Class({
+		
+		constructor: function(implementation) {
+			
+			var constructor = implementation.constructor;
+			
+			// register
+			var register = implementation.register;
+			delete implementation.register;
+			
+			// custom constructor
+			implementation.constructor = function() {
+				var element = this;
+				
+				constructor.apply(this, arguments);
+				initializeEvents(this, element);
+				initializeAttributes(this, element);
+				element.remove();
+				if ('init' in this) this.init();
+			}
+			
+			if (register) {
+				simpli5.register(register, implementation.constructor);
+			}
+			
+			return new Class(implementation);
+		}
+	});
+
+})();
 
 Storage.prototype.get = function(key) {
     return JSON.parse(this.getItem(key));

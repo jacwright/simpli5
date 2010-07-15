@@ -18,7 +18,7 @@ var List = new Component({
 		if (old && old instanceof BindableArray) old.un('change', this.onDataUpdate.boundTo(this));
 		if (value && value instanceof Array) {
 			if ( !(value instanceof BindableArray)) Class.makeClass(value, BindableArray);
-			value.on('change',  this.onDataUpdate.boundTo(this));
+			value.on('change', this.onDataUpdate.boundTo(this));
 			this.onDataUpdate();
 		}
 	},

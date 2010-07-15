@@ -1,6 +1,5 @@
 hover-menu {
-	display: block;
-	position: relative;
+	display: inline-block;
 	width: 20px;
 	height: 20px;
 	background: url(../images/control_play.png) no-repeat 50% 50%;
@@ -8,7 +7,7 @@ hover-menu {
 	-webkit-user-select: none;
 	-moz-user-select: none;
 }
-hover-menu menu {
+menu {
 	display: block;
 	position: absolute;
 	z-index: 100;
@@ -28,13 +27,13 @@ hover-menu menu {
 	-webkit-border-radius: 4px;
 	-moz-border-radius: 4px;
 }
-hover-menu menu menu {
+menu menu {
 	border-top-left-radius: 0;
 	
 	-webkit-border-top-left-radius: 0;
 	-moz-border-radius-topleft: 0;
 }
-hover-menu menu menu.up {
+menu menu.up {
 	border-top-left-radius: 4px;
 	border-bottom-left-radius: 0;
 	
@@ -43,7 +42,7 @@ hover-menu menu menu.up {
 	-moz-border-radius-topleft: 4px;
 	-moz-border-radius-bottomleft: 0;
 }
-hover-menu menu menu.left {
+menu menu.left {
 	border-top-left-radius: 4px;
 	border-top-right-radius: 0;
 	
@@ -52,7 +51,7 @@ hover-menu menu menu.left {
 	-moz-border-radius-topleft: 4px;
 	-moz-border-radius-topright: 0;
 }
-hover-menu menu menu.up.left {
+menu menu.up.left {
 	border-radius: 4px;
 	border-bottom-right-radius: 0;
 	
@@ -61,18 +60,24 @@ hover-menu menu menu.up.left {
 	-moz-border-radius: 4px;
 	-moz-border-radius-bottomright: 0;
 }
+menu-content {
+	display: block;
+	padding: 4px 12px;
+}
 menu-item {
+	display: block;
 	font: 13px "Lucida Grande", "Segoe UI", Tahoma;
 	color: #000;
 	position: relative;
 	white-space: nowrap;
-	padding: 2px 32px 2px 16px;
+	padding: 2px 16px;
 	border: 1px solid transparent;
 	border-left: none;
 	border-right: none;
 }
 menu-item.submenu {
 	background: url(../images/menu_arrow.png) no-repeat 100% 50%;
+	padding-right: 32px;
 }
 menu-item:hover, menu-item.open {
 	background-color: #d8f2ff;
@@ -80,9 +85,11 @@ menu-item:hover, menu-item.open {
 }
 menu-item.disabled {
 	background-color: transparent;
-	color: #999;
+	opacity: .5;
 }
-menu-item.separator {
+menu-separator {
+	display: block;
+	border: 1px solid transparent;
 	border-top: 1px solid #ddd;
 	border-bottom: none;
 	height: 0;
