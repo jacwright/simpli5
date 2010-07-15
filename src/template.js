@@ -1,7 +1,6 @@
 
 var Template = new Class({
 	constructor: function (html) {
-		this.compiled = null;
 		if (arguments.length) {
 			this.set.apply(this, arguments);
 		}
@@ -11,7 +10,7 @@ var Template = new Class({
 	slashesExp: /\\/g,
 	fixCarriageExp: /(\r\n|\n)/g,
 	escapeSingleExp: /'/g,
-	unEscapeSingleExp: /\\'/g,
+	unEscapeEscapesExp: /\\('|\\)/g,
 	tagStartExp: /<\w/g,
 	attributeExp: /([-\w]+)="([^"]*\{[^\}]*\}[^"]*)"/g,
 	innerContentExp: />([^<]*\{[^\}]*\}[^<]*)</g,
@@ -22,8 +21,9 @@ var Template = new Class({
 	},
 	
 	set: function (html) {
-		var compile = false;
-		var lines = [];
+		delete this.apply; // delete cached version if exists
+		delete this.createBound; // delete cached version if exists
+		var lines = [], compile;
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			var param = arguments[i];
 			if (param instanceof Array) {
@@ -40,19 +40,18 @@ var Template = new Class({
 	},
 	
     apply: function(data) {
-		if (this.compiled) return this.compiled(data);
 	    var replace = this.replace.bind(this, data);
         return this.html.replace(this.placeholdersExp, replace);
     },
 	
 	compileReplace: function(match, code) {
 		// slashes have been added for all ', remove for code
-		return "' + ((" + code.replace(this.unEscapeSingleExp, "'") + ") || '') + '";
+		return "' + ((" + code.replace(this.unEscapeEscapesExp, "$1") + ") || '') + '";
 	},
 	
 	compileReplaceArray: function(match, code) {
 		// slashes have been added for all ', remove for code
-		return "', ((" + code.replace(this.unEscapeSingleExp, "'") + ") || ''), '";
+		return "', ((" + code.replace(this.unEscapeEscapesExp, "$1") + ") || ''), '";
 	},
 	
 	compile: function() {
@@ -61,9 +60,9 @@ var Template = new Class({
 				this.html.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
+						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'; })";
-			this.compiled = eval(func);
+			this.apply = eval(func);
 		} catch(e) {
 			throw 'Error creating template "' + e + '" for template:\n' + this.html;
 		}
@@ -81,10 +80,6 @@ var Template = new Class({
 	
 	// creates the template binding all {data.*} expressions to the top-level element
 	createBound: function(data) {
-		if (this.compiledBound) {
-			return this.compiledBound(data);
-		}
-		
 		var topElement = toElement(this.html);
 		
 		simpli5.mold(topElement);
@@ -181,7 +176,7 @@ var Template = new Class({
 				value.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplace) +
+						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'); } catch(e) { element.attr('" + attr + "', ''); } })").bind(topElement);
 	},
 	
@@ -190,13 +185,13 @@ var Template = new Class({
 				content.replace(this.slashesExp, '\\\\')
 						.replace(this.fixCarriageExp, '\\n')
 						.replace(this.escapeSingleExp, "\\'")
-						.replace(this.placeholdersExp, this.compileReplaceArray) +
+						.replace(this.placeholdersExp, this.compileReplaceArray.boundTo(this)) +
 			"']); } catch(e) { element.html(''); } })").bind(topElement);
 	},
 	
 	compileBound: function() {
 		if (!this.html.match(this.placeholdersExp)) {
-			this.compiledBound = this.createMolded;
+			this.createBound = this.createMolded;
 			return;
 		}
 		
@@ -230,7 +225,7 @@ var Template = new Class({
 			
 			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
 			"		try {\n" +
-			"			element" + count + ".attr('" + attr + "', '" + value.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplace) + "');\n" +
+			"			element" + count + ".attr('" + attr + "', '" + value.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplace.boundTo(this)) + "');\n" +
 			"		} catch(e) {\n" +
 			"			element" + count + ".attr('" + attr + "', '');\n" +
 			"		}\n" +
@@ -270,7 +265,7 @@ var Template = new Class({
 			
 			section = "\tvar element" + count + " = nodes[" + finalIndex + "], setter" + count + " = (function() {\n" +
 			"		try {\n" +
-			"			element" + count + ".html(['" + content.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplaceArray) + "']);\n" +
+			"			element" + count + ".html(['" + content.replace(this.slashesExp, '\\\\').replace(this.fixCarriageExp, '\\n').replace(this.escapeSingleExp, "\\'").replace(this.placeholdersExp, this.compileReplaceArray.boundTo(this)) + "']);\n" +
 			"		} catch(e) {\n" +
 			"			element" + count + ".html('');\n" +
 			"		}\n" +
@@ -304,6 +299,6 @@ var Template = new Class({
 		"	return topElement;\n" +
 		"})";
 		
-		this.compiledBound = eval(func);
+		this.createBound = eval(func);
 	}
 });
