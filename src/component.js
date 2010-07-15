@@ -1,89 +1,47 @@
+var Component, Configuration;
 
-var Component = new Class({
-	extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
-	
-	constructor: function(implementation) {
-		// call the constructor inside our custom constructor
-		var constructor = implementation.constructor;
-		
-		// if not component, implement component functionality
-		var type = implementation.extend;
-		while (type && type != Component) {
-			type = type.prototype.__proto__ ? type.prototype.__proto__.constructor : null;
-		}
-		if (type != Component) {
-			var prev = implementation.implement ? implementation.implement : [];
-			implementation.implement = prev instanceof Array ? prev.concat([Component]) : [prev, Component];
-		}
-		
-		if (implementation.template && !implementation.template.compiledBound) implementation.template.compileBound();
-		
-		// register
-		var register = implementation.register;
-		delete implementation.register;
-		
-		implementation.constructor = function(data) { // the data object for an itemTemplate
-			var element = this;
-			this.data = data;
-			
-			if (!element.tagName && this.template) {
-				element = this.template.createBound();
-				element.__proto__ = this.__proto__;
-				if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
-			}
-			
-			element.initialize(); // from Component
-			constructor.apply(element, arguments);
-			return element;
-		}
-		
-		if (register) {
-			simpli5.register(register, implementation.constructor);
-		}
-		
-		return new Class(implementation);
-	},
-	
-	initialize: function() {
-		var i, l, evts = this.events, attrs = this.attributes;
-		
-		// setup custom events
-		this.initializeEvents();
-		
-		// setup custom attributes
-		this.initializeAttributes();
-	},
-	
-	initializeEvents: function() {
-		var evts = this.events;
+(function() {
+
+	/**
+	 * Initialize the events for an element
+	 * @param obj
+	 * @param element
+	 */
+	function initializeEvents(obj, element) {
+		var evts = obj.events;
 		 
 		if (!evts) return;
 		
 		for (var i = 0, l = evts.length; i < l; i++) {
 			var evt = evts[i];
-			if (this.hasAttribute('on' + evt)) {
+			if (element.hasAttribute('on' + evt)) {
 				try {
-					var listener = eval('(function(event) {' + this.getAttribute('on' + evt) + '})');
+					var listener = eval('(function(event) {' + element.getAttribute('on' + evt) + '})');
 				} catch(e) {}
-				if (listener) this.on(evt, this, listener);
+				if (listener) obj.on(evt, this, listener);
 			}
 		}
-	},
+	}
 	
-	initializeAttributes: function() {
-		var attrs = this.properties;
+	/**
+	 * Initialize the properties from the attributes for an element
+	 * @param obj
+	 * @param element
+	 */
+	function initializeAttributes(obj, element) {
+		var attrs = obj.properties;
 		
 		if (!attrs) return;
 		
 		for (var i = 0, l = attrs.length; i < l; i++) {
-			var attr = attrs[i], prop = this.camelize(attr);
-			if (this.hasAttribute(attr)) {
-				this[prop] = this.getValue(prop, this.getAttribute(attr));
+			var attr = attrs[i], prop = camelize(attr);
+			if (element.hasAttribute(attr)) {
+				obj[prop] = getValue(prop, element.getAttribute(attr));
 			}
 		}
-	},
+	}
 	
-	camelize: function(str) {
+	function camelize(str) {
 		var parts = str.split('-'), len = parts.length;
 		if (len == 1) return parts[0];
 		
@@ -95,9 +53,9 @@ var Component = new Class({
 			camelized += parts[i].charAt(0).toUpperCase() + parts[i].substring(1);
 		
 		return camelized;
-	},
+	}
 	
-	getValue: function(prop, value) {
+	function getValue(prop, value) {
 		var parsed;
 		if (value.indexOf('{') == 0 && value.lastIndexOf('}') == value.length - 1) {
 			// handle a bound value
@@ -118,21 +76,79 @@ var Component = new Class({
 		return value;
 	}
 	
-});
-
-
-
-
-var Button = new Component({
-	extend: HTMLButtonElement,
-	template: new Template('<button></button>'),
-	constructor: function() {
+	
+	
+	Component = new Class({
+		extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
 		
-	},
-	get label() {
-		return this.text();
-	},
-	set label(value) {
-		this.text(value);
-	}
-});
+		constructor: function(implementation) {
+			// call the constructor inside our custom constructor
+			var constructor = implementation.constructor;
+			
+			if (implementation.template && !implementation.template.compiledBound) implementation.template.compileBound();
+			
+			// register
+			var register = implementation.register;
+			delete implementation.register;
+			
+			// custom constructor
+			implementation.constructor = function(data) { // the data object for an itemTemplate
+				var element = this;
+				this.data = data;
+				
+				if (!element.tagName && this.template) {
+					element = this.template.createBound();
+					element.__proto__ = this.__proto__;
+					if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
+				}
+				
+				constructor.apply(element, arguments);
+				initializeEvents(element, element);
+				initializeAttributes(element, element);
+				if ('init' in element) element.init();
+				return element;
+			}
+			
+			if (register) {
+				simpli5.register(register, implementation.constructor);
+			}
+			
+			return new Class(implementation);
+		}
+		
+	});
+	
+	/**
+	 * Elements which represent objects and not actual visual pieces of the display. The
+	 * HTMLElement will be removed after the configuration is saved and set up appropriately.
+	 */
+	Configuration = new Class({
+		
+		constructor: function(implementation) {
+			
+			var constructor = implementation.constructor;
+			
+			// register
+			var register = implementation.register;
+			delete implementation.register;
+			
+			// custom constructor
+			implementation.constructor = function() {
+				var element = this;
+				
+				constructor.apply(this, arguments);
+				initializeEvents(this, element);
+				initializeAttributes(this, element);
+				element.remove();
+				if ('init' in this) this.init();
+			}
+			
+			if (register) {
+				simpli5.register(register, implementation.constructor);
+			}
+			
+			return new Class(implementation);
+		}
+	});
+
+})();

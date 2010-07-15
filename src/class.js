@@ -43,6 +43,7 @@ extend(Class, {
 		var args = toArray(arguments);
 		args.splice(0, 3);
 		if (!skipConstructor) classType.apply(instance, args);
+		return instance;
 	},
 	insert: function(instance, classType) {
 		var proto = {};
@@ -53,5 +54,6 @@ extend(Class, {
 		}
 		proto.__proto__ = instance.__proto__;
 		instance.__proto__ = proto;
+		return instance;
 	}
 });
