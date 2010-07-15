@@ -3,7 +3,7 @@ extend(Node.prototype, {
 	parent: function(selector) {
 		var node = this.parentNode;
 		while (node) {
-			if (node.matches(selector)) return node;
+			if ('matches' in node && node.matches(selector)) return node;
 			node = node.parentNode;
 		}
 		return null;
@@ -22,8 +22,14 @@ extend(Element.prototype, {
 	}),
 	getChildren: function(selector) {
 		var children = new ElementArray(this.children);
-		if (selector) children.filterBy(selector)
+		if (selector) return children.filterBy(selector);
 		return children;
+	},
+	siblings: function(selector) {
+		var sibs = new ElementArray(this.parentNode.children);
+		sibs.splice(sibs.indexOf(this), 1);
+		if (selector) return sibs.filterBy(selector);
+		return sibs;
 	}
 });
 

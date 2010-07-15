@@ -15,9 +15,15 @@ extend(HTMLElement.prototype, {
 		}
 		return this;
 	},
+	remove: function() {
+		if (this.parentNode) {
+			this.parentNode.removeChild(this);
+		}
+		return this;
+	},
 	after: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.parentNode.insertBefore(frag, this.nextSibling);
 		return nodes;
 	},
@@ -30,13 +36,13 @@ extend(HTMLElement.prototype, {
 	},
 	before: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.parentNode.insertBefore(frag, this);
 		return nodes;
 	},
 	prepend: function(html) {
 		var frag = toFragment(html);
-		var nodes = toArray(frag.childeNodes);
+		var nodes = new ElementArray(frag.childNodes);
 		this.insertBefore(frag, this.firstChild);
 		return nodes;
 	}
@@ -46,6 +52,7 @@ extend(HTMLElement.prototype, {
 ElementArray.map({
 	makeClass: 'forEach',
 	cleanWhitespace: 'forEach',
+	remove: 'forEach',
 	after: 'merge',
 	append: 'merge',
 	before: 'merge',
