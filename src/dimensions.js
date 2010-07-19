@@ -6,7 +6,8 @@ extend(HTMLElement.prototype, {
 			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
 			return this.offsetWidth - padding - border;
 		} else {
-			this.css('width', Math.max(value, 0));
+			if (value == null) this.css('width', '');
+			else this.css('width', Math.max(value, 0));
 			return this;
 		}
 	},
@@ -16,7 +17,8 @@ extend(HTMLElement.prototype, {
 			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
 			return this.offsetHeight - padding - border;
 		} else {
-			this.css('height', Math.max(value, 0));
+			if (value == null) this.css('height', '');
+			else this.css('height', Math.max(value, 0));
 			return this;
 		}
 	},
@@ -59,8 +61,14 @@ extend(HTMLElement.prototype, {
 				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));
 				if ('top' in value) this.css('top', value.top - (rect.top + topOffset - value.top));
 			}
-			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
-			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
+			if ('right' in value) {
+				if ('left' in value) this.css('width', value.right - value.left + leftOffset);
+				else this.css('left', value.right - rect.width + leftOffset);
+			}
+			if ('bottom' in value) {
+				if ('top' in value) this.css('height', value.bottom - value.top + topOffset);
+				else this.css('top', value.bottom - rect.height + topOffset);
+			}
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
 			return this;

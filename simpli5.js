@@ -201,31 +201,34 @@ var ElementArray = new Class({
 	extend: Array,
 	
 	constructor: function(selector) {
+		var array = [];
+		Class.makeClass(array, ElementArray, true);
 		if (!selector) {
-			return;
+			return array;
 		} else if (selector.nodeType) {
-			this.push(selector);
+			array.push(selector);
 		} else if (typeof selector === "string") {
-			this.merge(this.context.querySelectorAll(selector));
+			array.merge(this.context.querySelectorAll(selector));
 		} else {
-			this.merge(selector);
+			array.merge(selector);
 		}
+		return array;
 	},
 	
 	concat: function(args) {
-		return Class.makeClass(Array.prototype.concat.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.concat.apply(this, arguments), ElementArray, true);
 	},
 	filter: function(func, thisObj) {
-		return Class.makeClass(Array.prototype.filter.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.filter.call(this, func, thisObj), ElementArray, true);
 	},
 	map: function(func, thisObj) {
-		return Class.makeClass(Array.prototype.map.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.map.call(this, func, thisObj), ElementArray, true);
 	},
 	slice: function(start, end) {
-		return Class.makeClass(Array.prototype.slice.call(this, start, end), ElementArray);
+		return Class.makeClass(Array.prototype.slice.call(this, start, end), ElementArray, true);
 	},
 	splice: function(startIndex, howMany, args) {
-		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray, true);
 	},
 	
 	/**
@@ -493,7 +496,7 @@ var EventDispatcher = new Class({
 		}
 	},
 	hasEventListener: function(type) {
-		return (this.__events && this.__events[type] && this.__events[type].length);
+		return (this.__events && type in this.__events && this.__events[type].length);
 	},
 	on: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
@@ -955,7 +958,8 @@ extend(HTMLElement.prototype, {
 			var border = parseInt(this.css('borderLeftWidth')) + parseInt(this.css('borderRightWidth'));
 			return this.offsetWidth - padding - border;
 		} else {
-			this.css('width', Math.max(value, 0));
+			if (value == null) this.css('width', '');
+			else this.css('width', Math.max(value, 0));
 			return this;
 		}
 	},
@@ -965,7 +969,8 @@ extend(HTMLElement.prototype, {
 			var border = parseInt(this.css('borderTopWidth')) + parseInt(this.css('borderBottomWidth'));
 			return this.offsetHeight - padding - border;
 		} else {
-			this.css('height', Math.max(value, 0));
+			if (value == null) this.css('height', '');
+			else this.css('height', Math.max(value, 0));
 			return this;
 		}
 	},
@@ -1008,8 +1013,14 @@ extend(HTMLElement.prototype, {
 				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));
 				if ('top' in value) this.css('top', value.top - (rect.top + topOffset - value.top));
 			}
-			if ('right' in value) this.css('width', value.right - value.left + leftOffset);
-			if ('bottom' in value) this.css('height', value.bottom - value.top + topOffset);
+			if ('right' in value) {
+				if ('left' in value) this.css('width', value.right - value.left + leftOffset);
+				else this.css('left', value.right - rect.width + leftOffset);
+			}
+			if ('bottom' in value) {
+				if ('top' in value) this.css('height', value.bottom - value.top + topOffset);
+				else this.css('top', value.bottom - rect.height + topOffset);
+			}
 			if ('width' in value) this.outerWidth(value.width);
 			if ('height' in value) this.outerHeight(value.height);
 			return this;
@@ -1028,6 +1039,10 @@ ElementArray.map({
 extend(HTMLElement.prototype, {
 	makeClass: function(type) {
 		Class.makeClass(this, type);
+		return this;
+	},
+	call: function(name) {
+		if (name in this) this[name].apply(this, arguments);
 		return this;
 	},
 	cleanWhitespace: function() {
@@ -1077,6 +1092,7 @@ extend(HTMLElement.prototype, {
 
 ElementArray.map({
 	makeClass: 'forEach',
+	call: 'forEach',
 	cleanWhitespace: 'forEach',
 	remove: 'forEach',
 	after: 'merge',
@@ -1790,7 +1806,7 @@ var Component, Configuration;
 				try {
 					var listener = eval('(function(event) {' + element.getAttribute('on' + evt) + '})');
 				} catch(e) {}
-				if (listener) obj.on(evt, this, listener);
+				if (listener) obj.on(evt, listener.boundTo(obj));
 			}
 		}
 	}
@@ -1833,7 +1849,7 @@ var Component, Configuration;
 			// handle a bound value
 			var component = this;
 			value = value.substring(1, value.length - 1);
-			Bind.setter(window, value, eval('(function() { try { console.log("updating", dummy); component.' + prop + ' = ' + value + '; } catch (e) {} })'));
+			Bind.setter(window, value, eval('(function() { try { component.' + prop + ' = ' + value + '; } catch (e) {} })'));
 		} else if (value.indexOf(',') != -1) {
 			parsed = value.split(/\s*,\s*/);
 			for (var i = 0, l = parsed.length; i < parsed; i++) {

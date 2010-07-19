@@ -7,10 +7,10 @@ hover-menu {
 	-webkit-user-select: none;
 	-moz-user-select: none;
 }
-menu {
+menu.hover-menu-root, menu.hover-menu-root menu {
 	display: block;
 	position: absolute;
-	z-index: 100;
+	z-index: 10000;
 	padding: 4px 0;
 	background-color: #fff;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, .65);
@@ -27,13 +27,13 @@ menu {
 	-webkit-border-radius: 4px;
 	-moz-border-radius: 4px;
 }
-menu menu {
+menu.hover-menu-root menu {
 	border-top-left-radius: 0;
 	
 	-webkit-border-top-left-radius: 0;
 	-moz-border-radius-topleft: 0;
 }
-menu menu.up {
+menu.hover-menu-root menu.up {
 	border-top-left-radius: 4px;
 	border-bottom-left-radius: 0;
 	
@@ -42,7 +42,7 @@ menu menu.up {
 	-moz-border-radius-topleft: 4px;
 	-moz-border-radius-bottomleft: 0;
 }
-menu menu.left {
+menu.hover-menu-root menu.left {
 	border-top-left-radius: 4px;
 	border-top-right-radius: 0;
 	
@@ -51,7 +51,7 @@ menu menu.left {
 	-moz-border-radius-topleft: 4px;
 	-moz-border-radius-topright: 0;
 }
-menu menu.up.left {
+menu.hover-menu-root menu.up.left {
 	border-radius: 4px;
 	border-bottom-right-radius: 0;
 	
@@ -60,13 +60,13 @@ menu menu.up.left {
 	-moz-border-radius: 4px;
 	-moz-border-radius-bottomright: 0;
 }
-menu-content {
+menu.hover-menu-root menu-content {
 	display: block;
 	padding: 4px 12px;
 }
-menu-item {
+menu.hover-menu-root menu-item {
 	display: block;
-	font: 13px "Lucida Grande", "Segoe UI", Tahoma;
+	font: 13px arial, sans-serif;
 	color: #000;
 	position: relative;
 	white-space: nowrap;
@@ -75,19 +75,19 @@ menu-item {
 	border-left: none;
 	border-right: none;
 }
-menu-item.submenu {
+menu.hover-menu-root menu-item.submenu {
 	background: url(../images/menu_arrow.png) no-repeat 100% 50%;
 	padding-right: 32px;
 }
-menu-item:hover, menu-item.open {
+menu.hover-menu-root menu-item:hover:not(.disabled), menu.hover-menu-root menu-item.open {
 	background-color: #d8f2ff;
 	border-color: #b2e5ff;
 }
-menu-item.disabled {
+menu.hover-menu-root menu-item.disabled {
 	background-color: transparent;
 	opacity: .5;
 }
-menu-separator {
+menu.hover-menu-root menu-separator {
 	display: block;
 	border: 1px solid transparent;
 	border-top: 1px solid #ddd;

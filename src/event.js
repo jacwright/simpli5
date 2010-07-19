@@ -127,7 +127,7 @@ var EventDispatcher = new Class({
 		}
 	},
 	hasEventListener: function(type) {
-		return (this.__events && this.__events[type] && this.__events[type].length);
+		return (this.__events != null && type in this.__events && this.__events[type].length > 0);
 	},
 	on: function(type, listener) {
 		var types = type.split(/\s*,\s*/);

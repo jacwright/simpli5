@@ -18,7 +18,7 @@ var Component, Configuration;
 				try {
 					var listener = eval('(function(event) {' + element.getAttribute('on' + evt) + '})');
 				} catch(e) {}
-				if (listener) obj.on(evt, this, listener);
+				if (listener) obj.on(evt, listener.boundTo(obj));
 			}
 		}
 	}
@@ -61,7 +61,7 @@ var Component, Configuration;
 			// handle a bound value
 			var component = this;
 			value = value.substring(1, value.length - 1);
-			Bind.setter(window, value, eval('(function() { try { console.log("updating", dummy); component.' + prop + ' = ' + value + '; } catch (e) {} })'));
+			Bind.setter(window, value, eval('(function() { try { component.' + prop + ' = ' + value + '; } catch (e) {} })'));
 		} else if (value.indexOf(',') != -1) {
 			parsed = value.split(/\s*,\s*/);
 			for (var i = 0, l = parsed.length; i < parsed; i++) {

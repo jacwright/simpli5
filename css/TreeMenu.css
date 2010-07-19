@@ -1,94 +1,78 @@
-.TreeMenu {
+tree-menu {
+	display: block;
+	cursor: default;
+	white-space: nowrap;
 	user-select: none;
 	-webkit-user-select: none;
 	-moz-user-select: none;
-	cursor: default;
-	width: 200px;
 	overflow: auto;
-	height: 100%;
 }
-#explorer section div:first-child {
-	display: none;
+tree-menu > menu {
+	display: block;
 }
-.TreeMenu ul {
-	margin: 0;
-	padding: 0 0 0 20px;
+tree-menu menu-item {
+	display: block;
 	clear: left;
+}
+tree-menu.sizing > menu, tree-menu.sizing > menu > menu-item {
 	float: left;
-	list-style: none;
-	white-space: nowrap;
 }
-.TreeMenu ul ul {
-	margin-left: -40px;
-	padding-left: 40px;
-	width: 100%;
-	position: relative;
-	z-index: 100;
-}
-.TreeMenu li {
-	margin: 0;
-	padding: 0 4px 0 20px;
-	height: 18px; /* row-height (should be an even number) */
-	clear: left;
-	white-space: nowrap;
-	position: relative;
-}
-.TreeMenu span {
+tree-menu opener {
+	display: block;
 	float: left;
-	width: 20px; /* column-width (odd or even) */
-	height: 100%;
+	padding: 1px;
+	height: 16px;
+	width: 16px;
 }
-.TreeMenu .line {
-	background: url(../images/dotted-v.png) repeat-y 10px 0;
+tree-menu menu-item.open > opener {
+	background: url(../images/file_arrow.png) no-repeat 0 -36px;
 }
-.TreeMenu .icon.line {
-	background: url(../images/dotted-h.png) no-repeat -20px 8px;
+tree-menu menu-item.open > opener:hover {
+	background: url(../images/file_arrow.png) no-repeat 0 -54px;
 }
-.TreeMenu .icon.elbow {
-	background: url(../images/dotted-v.png) no-repeat 10px 8px, url(../images/dotted-h.png) no-repeat -20px 8px;
+tree-menu menu-item.closed > opener {
+	background: url(../images/file_arrow.png) no-repeat 0 0;
 }
-.TreeMenu .tee {
-	background: url(../images/dotted-v.png) no-repeat 10px 0, url(../images/dotted-h.png) no-repeat 10px 8px;
+tree-menu menu-item.closed > opener:hover {
+	background: url(../images/file_arrow.png) no-repeat 0 -18px;
 }
-.TreeMenu .elbow {
-	background: url(../images/dotted-v.png) no-repeat 10px -20px, url(../images/dotted-h.png) no-repeat 10px 8px;
+tree-menu menu-item.open > menu {
+	display: block;
 }
-.TreeMenu .top-elbow {
-	background: url(../images/dotted-v.png) no-repeat 10px 8px, url(../images/dotted-h.png) no-repeat 10px 8px;
+tree-menu content {
+	display: block;
+	position: relative;
+	overflow: hidden;
 }
-.TreeMenu .open {
-	background: url(../images/minus.gif) no-repeat 50% 50%;
-}
-.TreeMenu .closed {
-	background: url(../images/plus.gif) no-repeat 50% 50%;
-}
-.TreeMenu .folder {
-	background: url(../images/folder.png) no-repeat 50% 50%;
-}
-.TreeMenu .page {
-	background: url(../images/page.png) no-repeat 50% 50%;
-}
-.TreeMenu .item {
-	width: 100%;
-}
-.TreeMenu .icon img {
+tree-menu img {
+	display: block;
+	float: left;
+	padding: 1px;
 	width: 16px;
 	height: 16px;
-	margin: 1px;
 }
-.TreeMenu .label {
-	width: auto;
-	max-width: 100%;
-	text-overflow: ellipsis;
-	overflow: hidden;
-	border-radius: 6px;
+tree-menu text {
+	display: block;
+	float: left;
+	padding: 0 4px 0 2px;
+	font: 13px/16px arial, sans-serif;
+	color: #444;
 	border: 1px solid transparent;
-	padding: 0 2px;
-	box-sizing: border-box;
-	-webkit-box-sizing: border-box;
-	font: 9pt/16px "Lucida Grande", "Segoe UI", Tahoma;
+	border-radius: 2px;
 }
-.TreeMenu .item.selected .label {
-	background-color: #D8F2FF;
-	border: 1px solid #B2E5FF;
+tree-menu.popout text {
+	background: #fff;
+	color: #222;
+}
+tree-menu content:hover text {
+	color: #222;
+}
+tree-menu menu-item.selected > content > text {
+	background-color: #b3e6ff;
+	border: 1px solid #8cd8ff;
+	color: #000;
+}
+tree-menu menu-item menu {
+	display: none;
+	margin-left: 18px;
 }

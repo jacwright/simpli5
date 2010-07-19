@@ -3,31 +3,34 @@ var ElementArray = new Class({
 	extend: Array,
 	
 	constructor: function(selector) {
+		var array = [];
+		Class.makeClass(array, ElementArray, true);
 		if (!selector) {
-			return;
+			return array;
 		} else if (selector.nodeType) {
-			this.push(selector);
+			array.push(selector);
 		} else if (typeof selector === "string") {
-			this.merge(this.context.querySelectorAll(selector));
+			array.merge(this.context.querySelectorAll(selector));
 		} else {
-			this.merge(selector);
+			array.merge(selector);
 		}
+		return array;
 	},
 	
 	concat: function(args) {
-		return Class.makeClass(Array.prototype.concat.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.concat.apply(this, arguments), ElementArray, true);
 	},
 	filter: function(func, thisObj) {
-		return Class.makeClass(Array.prototype.filter.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.filter.call(this, func, thisObj), ElementArray, true);
 	},
 	map: function(func, thisObj) {
-		return Class.makeClass(Array.prototype.map.call(this, func, thisObj), ElementArray);
+		return Class.makeClass(Array.prototype.map.call(this, func, thisObj), ElementArray, true);
 	},
 	slice: function(start, end) {
-		return Class.makeClass(Array.prototype.slice.call(this, start, end), ElementArray);
+		return Class.makeClass(Array.prototype.slice.call(this, start, end), ElementArray, true);
 	},
 	splice: function(startIndex, howMany, args) {
-		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray);
+		return Class.makeClass(Array.prototype.splice.apply(this, arguments), ElementArray, true);
 	},
 	
 	/**

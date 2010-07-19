@@ -43,6 +43,7 @@ var HoverMenu = new Component({
 		this.submenu = this.find(simpli5.selector('menu'));
 		if (this.submenu) {
 			this.submenu.hide();
+			this.submenu.addClass('hover-menu-root');
 			this.submenu.menu = this.menu = this;
 			this.on('click', this.onClick.boundTo(this));
 			this.on('mousedown', Event.prevent);
@@ -70,7 +71,7 @@ var HoverMenu = new Component({
 		this._clickOnly = value;
 		if (this.submenu) {
 			value ? this.un('rollover', this.open.boundTo(this)) : this.on('rollover', this.open.boundTo(this));
-			this.autoClose ? this.submenu.un('rollout', this.onRollout.boundTo(this)) : this.submenu.on('rollout', this.onRollout.boundTo(this));
+			this.updateAutoClose();
 		}
 	},
 	
@@ -84,11 +85,11 @@ var HoverMenu = new Component({
 	 * This may be set via the auto-close attribute with auto-close="true|false"
 	 */
 	get autoClose() {
-		return this.hasOwnProperty('_autoClose') ? this._autoClose : this.clickOnly;
+		return this.hasOwnProperty('_autoClose') ? this._autoClose : !this.clickOnly;
 	},
 	set autoClose(value) {
 		this._autoClose = value;
-		value ? this.on('rollout', this.onRollout.boundTo(this)) : this.un('rollout', this.onRollout.boundTo(this));
+		this.updateAutoClose();
 	},
 
 	/**
@@ -176,6 +177,30 @@ var HoverMenu = new Component({
 		this.rolloutTimeout = setTimeout(function() {
 			menu.close();
 		}, 600);
+	},
+	
+	/**
+	 * @private
+	 */
+	onRollover: function() {
+		clearTimeout(this.rolloutTimeout);
+	},
+	
+	/**
+	 * @private
+	 */
+	updateAutoClose: function() {
+		if (this.autoClose) {
+			this.on('rollout', this.onRollout.boundTo(this));
+			this.submenu.on('rollout', this.onRollout.boundTo(this));
+			this.on('rollover', this.onRollover.boundTo(this));
+			this.submenu.on('rollover', this.onRollover.boundTo(this));
+		} else {
+			this.un('rollout', this.onRollout.boundTo(this));
+			this.submenu.un('rollout', this.onRollout.boundTo(this));
+			this.un('rollover', this.onRollover.boundTo(this));
+			this.submenu.un('rollover', this.onRollover.boundTo(this));
+		}
 	}
 });
 
@@ -230,8 +255,9 @@ var HoverMenuItem = new Component({
 			this.submenu.hide();
 			this.addClass('submenu');
 		}
+		Bind.property(this.menu, 'data', this, 'data');
 	},
-
+	
 	/**
 	 * Deactivates the menu item from being selected or opened.
 	 * Can be set as an attribute in the HTML: disabled="true|false"
@@ -244,7 +270,7 @@ var HoverMenuItem = new Component({
 		this._disabled = value;
 		value ? this.addClass('disabled') : this.removeClass('disabled');
 	},
-
+	
 	/**
 	 * The hover-menu instance this item belongs to. Read-only.
 	 */
@@ -258,7 +284,7 @@ var HoverMenuItem = new Component({
 		}
 		return this._menu;
 	},
-
+	
 	/**
 	 * Selects the menu item if it has no submenu. Triggers the select event and closes the entire hover menu.
 	 * @param event not required
@@ -269,7 +295,7 @@ var HoverMenuItem = new Component({
 		this.dispatchEvent(new CustomEvent('select', true));
 		this.menu.close();
 	},
-
+	
 	/**
 	 * Closes the submenu and any descendants if they exist.
 	 */
@@ -282,7 +308,7 @@ var HoverMenuItem = new Component({
 			this.parentNode.hoveredItem = null;
 		}
 	},
-
+	
 	/**
 	 * @private
 	 */
@@ -294,14 +320,14 @@ var HoverMenuItem = new Component({
 			this.hovering();
 		}
 	},
-
+	
 	/**
 	 * @private
 	 */
 	unhovered: function() {
 		clearTimeout(this.hoverTimeout);
 	},
-
+	
 	/**
 	 * @private
 	 */
@@ -314,7 +340,7 @@ var HoverMenuItem = new Component({
 			this.openSubmenu();
 		}
 	},
-
+	
 	/**
 	 * @private
 	 */

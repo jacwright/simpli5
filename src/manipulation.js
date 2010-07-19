@@ -4,6 +4,10 @@ extend(HTMLElement.prototype, {
 		Class.makeClass(this, type);
 		return this;
 	},
+	call: function(name) {
+		if (name in this) this[name].apply(this, arguments);
+		return this;
+	},
 	cleanWhitespace: function() {
 		var node = this.firstChild;
 		while (node) {
@@ -51,6 +55,7 @@ extend(HTMLElement.prototype, {
 
 ElementArray.map({
 	makeClass: 'forEach',
+	call: 'forEach',
 	cleanWhitespace: 'forEach',
 	remove: 'forEach',
 	after: 'merge',
