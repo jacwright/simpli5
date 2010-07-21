@@ -36,11 +36,10 @@ var HoverMenu = new Component({
 	extend: Component,
 	template: new Template('<hover-menu></hover-menu>'),
 	properties: ['click-only', 'auto-close', 'menu-delay', 'open-below'],
-	events: ['select'],
 	register: 'hover-menu',
 	
 	constructor: function() {
-		this.submenu = this.find(simpli5.selector('menu'));
+		this.submenu = this.find(simpli5.selector('menu')) || this.append(new HoverMenuSubmenu());
 		this._openBelow = false;
 		this.submenu.hide();
 		this.submenu.addClass('hover-menu-root');
@@ -228,7 +227,7 @@ var HoverMenu = new Component({
  * The onselect attribute will add a listener to any select events dispatched by the submenu's children.
  */
 var HoverMenuSubmenu = new Component({
-	extend: Component,
+	extend: window.HTMLMenuElement || Component,
 	template: new Template('<menu></menu>'),
 	register: 'hover-menu menu',
 	events: ['select'],

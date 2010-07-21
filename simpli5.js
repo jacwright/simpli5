@@ -500,7 +500,7 @@ var EventDispatcher = new Class({
 		}
 	},
 	hasEventListener: function(type) {
-		return (this.__events && type in this.__events && this.__events[type].length);
+		return (this.__events != null && type in this.__events && this.__events[type].length > 0);
 	},
 	on: function(type, listener) {
 		var types = type.split(/\s*,\s*/);
@@ -746,8 +746,8 @@ extend(Element.prototype, {
 	matches: (Element.prototype.matchesSelector || Element.prototype.webkitMatchesSelector || Element.prototype.mozMatchesSelector || function(selector) {
 		return (document.find(selector).indexOf(this) != -1);
 	}),
-	getChildren: function(selector) {
-		var children = new ElementArray(this.children);
+	getChildren: function(selector) {try {
+		var children = new ElementArray(this.children);} catch(e) {console.log(this, this.constructor, this.__proto__);}
 		if (selector) return children.filterBy(selector);
 		return children;
 	},
@@ -1511,6 +1511,8 @@ var Template = new Class({
 	set: function (html) {
 		delete this.apply; // delete cached version if exists
 		delete this.createBound; // delete cached version if exists
+		delete this.compiled;
+		delete this.compiledBound;
 		var lines = [], compile;
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			var param = arguments[i];
@@ -1543,6 +1545,7 @@ var Template = new Class({
 	},
 	
 	compile: function() {
+		if (this.compiled) this;
 		try {
 			var func = "(function(data) { return '" +
 				this.html.replace(this.slashesExp, '\\\\')
@@ -1551,6 +1554,7 @@ var Template = new Class({
 						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'; })";
 			this.apply = eval(func);
+			this.compiled = true;
 		} catch(e) {
 			throw 'Error creating template "' + e + '" for template:\n' + this.html;
 		}
@@ -1678,6 +1682,8 @@ var Template = new Class({
 	},
 	
 	compileBound: function() {
+		if (this.compiledBound) return this;
+		
 		if (!this.html.match(this.placeholdersExp)) {
 			this.createBound = this.createMolded;
 			return;
@@ -1788,6 +1794,9 @@ var Template = new Class({
 		"})";
 		
 		this.createBound = eval(func);
+		this.compiledBound = true;
+		
+		return this;
 	}
 });
 var Component, Configuration;
