@@ -1,11 +1,14 @@
 hover-menu {
 	display: inline-block;
-	width: 20px;
-	height: 20px;
+	width: 16px;
+	height: 16px;
 	background: url(../images/control_play.png) no-repeat 50% 50%;
 	user-select: none;
 	-webkit-user-select: none;
 	-moz-user-select: none;
+}
+hover-menu.below {
+	background: url(../images/control_play_down.png) no-repeat 50% 50%;
 }
 menu.hover-menu-root, menu.hover-menu-root menu {
 	display: block;
@@ -26,6 +29,9 @@ menu.hover-menu-root, menu.hover-menu-root menu {
 	
 	-webkit-border-radius: 4px;
 	-moz-border-radius: 4px;
+}
+menu.hover-menu-root:not(.below), menu.hover-menu-root menu {
+	margin: -4px 0;
 }
 menu.hover-menu-root menu {
 	border-top-left-radius: 0;

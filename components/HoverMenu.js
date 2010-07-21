@@ -35,24 +35,22 @@
 var HoverMenu = new Component({
 	extend: Component,
 	template: new Template('<hover-menu></hover-menu>'),
-	properties: ['click-only', 'auto-close', 'menu-delay'],
+	properties: ['click-only', 'auto-close', 'menu-delay', 'open-below'],
 	events: ['select'],
 	register: 'hover-menu',
 	
 	constructor: function() {
 		this.submenu = this.find(simpli5.selector('menu'));
-		if (this.submenu) {
-			this.submenu.hide();
-			this.submenu.addClass('hover-menu-root');
-			this.submenu.menu = this.menu = this;
-			this.on('click', this.onClick.boundTo(this));
-			this.on('mousedown', Event.prevent);
-			var menu = this;
-			setTimeout(function() {
-				menu.submenu.remove();
-				menu.html('<div>&nbsp;</div>');
-			}, 0);
-		}
+		this._openBelow = false;
+		this.submenu.hide();
+		this.submenu.addClass('hover-menu-root');
+		this.submenu.menu = this.menu = this;
+		this.on('click', this.onClick.boundTo(this));
+		this.on('mousedown', Event.prevent);
+		var menu = this;
+		setTimeout(function() {
+			menu.submenu.remove();
+		}, 1);
 		this.clickOnly = false;
 		this.menuDelay = true;
 	},
@@ -90,6 +88,19 @@ var HoverMenu = new Component({
 	set autoClose(value) {
 		this._autoClose = value;
 		this.updateAutoClose();
+	},
+	
+	/**
+	 * 
+	 */
+	get openBelow() {
+		return this._openBelow;
+	},
+	set openBelow(value) {
+		if (this._openBelow == value ) return;
+		this._openBelow = value;
+		value ? this.addClass('below') : this.removeClass('below');
+		value ? this.submenu.addClass('below') : this.submenu.removeClass('below');
 	},
 
 	/**
@@ -135,8 +146,14 @@ var HoverMenu = new Component({
 		var rect = this.rect();
 		this.submenu.show(true);
 		var menuRect = this.submenu.rect();
-		var left = rect.right - 2;
-		var top = rect.top - 4;
+		var left = rect.right;
+		var top = rect.top;
+		
+		if (this.openBelow) {
+			left = rect.left;
+			top = rect.bottom;
+		}
+		
 		if (left + menuRect.width >= window.innerWidth) {
 			left = rect.left - menuRect.width + 2;
 			this.submenu.addClass('left');
@@ -289,8 +306,7 @@ var HoverMenuItem = new Component({
 	 * Selects the menu item if it has no submenu. Triggers the select event and closes the entire hover menu.
 	 * @param event not required
 	 */
-	select: function(event) {
-		if (event) event.stopPropagation();
+	select: function() {
 		if (this.disabled || this.submenu) return;
 		this.dispatchEvent(new CustomEvent('select', true));
 		this.menu.close();

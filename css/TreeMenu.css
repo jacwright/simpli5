@@ -45,15 +45,14 @@ tree-menu content {
 	overflow: hidden;
 }
 tree-menu img {
-	display: block;
+	display: inline-block;
 	float: left;
 	padding: 1px;
 	width: 16px;
 	height: 16px;
 }
 tree-menu text {
-	display: block;
-	float: left;
+	display: inline-block;
 	padding: 0 4px 0 2px;
 	font: 13px/16px arial, sans-serif;
 	color: #444;

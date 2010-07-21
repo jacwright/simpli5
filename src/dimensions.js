@@ -42,7 +42,7 @@ extend(HTMLElement.prototype, {
 			return this;
 		}
 	},
-	rect: function(value) {
+	rect: function(value, includeMargins) {
 		var rect;
 		if (value === undefined) {
 			rect = this.getBoundingClientRect();
@@ -55,7 +55,7 @@ extend(HTMLElement.prototype, {
 			var topOffset = this.offsetTop - rect.top;
 			if ('left' in value) this.css('left', value.left += leftOffset);
 			if ('top' in value) this.css('top', value.top += topOffset);
-			if ('top' in value || 'left' in value) {
+			if (includeMargins && ('top' in value || 'left' in value)) {
 				// fix for margins
 				rect = this.getBoundingClientRect();
 				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));

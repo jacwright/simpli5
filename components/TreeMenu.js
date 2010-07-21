@@ -267,7 +267,7 @@ var TreeMenuItem = new Component({
 	select: function() {
 		if (this.hasClass('selected')) return;
 		this.addClass('selected');
-		if (this.popout) this.popout.firstChild.className = this.className;
+		if (this.popout) this.popout.firstChild.firstChild.className = this.className;
 		this.dispatchEvent(new TreeEvent('select', this, true));
 	},
 	
@@ -290,7 +290,7 @@ var TreeMenuItem = new Component({
 		if (rect.width - overflow <= 0) return;
 		
 		// if the text is overflowing the boundary popout the hidden part
-		this.popout = document.body.append('<tree-menu class="popout"><menu-item><content><text>' + this.find('text').html() + '</text></content></menu-item></tree-menu>').pop();
+		this.popout = document.body.append('<tree-menu class="popout"><menu><menu-item><content><text>' + this.find('text').html() + '</text></content></menu-item></menu></tree-menu>').pop();
 		this.popout.css({
 			position: 'absolute',
 			zIndex: 10000

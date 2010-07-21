@@ -9,7 +9,7 @@ Function.prototype.bind = function(obj) {
 	for (var i = 1, l = arguments.length; i < l; i++) {
 		args.push(arguments[i]);
 	}
-	return function() {
+	var func = function() {
 		var a = [];
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			a.push(arguments[i]);
@@ -17,6 +17,10 @@ Function.prototype.bind = function(obj) {
 		a = a.concat(args);
 		return method.apply(obj, a);
 	}
+	func.toString = function() {
+		return method.toString();
+	}
+	return func;
 };
 
 Function.prototype.boundTo = function(obj) {

@@ -23,6 +23,8 @@ var Template = new Class({
 	set: function (html) {
 		delete this.apply; // delete cached version if exists
 		delete this.createBound; // delete cached version if exists
+		delete this.compiled;
+		delete this.compiledBound;
 		var lines = [], compile;
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			var param = arguments[i];
@@ -55,6 +57,7 @@ var Template = new Class({
 	},
 	
 	compile: function() {
+		if (this.compiled) this;
 		try {
 			var func = "(function(data) { return '" +
 				this.html.replace(this.slashesExp, '\\\\')
@@ -63,6 +66,7 @@ var Template = new Class({
 						.replace(this.placeholdersExp, this.compileReplace.boundTo(this)) +
 			"'; })";
 			this.apply = eval(func);
+			this.compiled = true;
 		} catch(e) {
 			throw 'Error creating template "' + e + '" for template:\n' + this.html;
 		}
@@ -190,6 +194,8 @@ var Template = new Class({
 	},
 	
 	compileBound: function() {
+		if (this.compiledBound) return this;
+		
 		if (!this.html.match(this.placeholdersExp)) {
 			this.createBound = this.createMolded;
 			return;
@@ -300,5 +306,8 @@ var Template = new Class({
 		"})";
 		
 		this.createBound = eval(func);
+		this.compiledBound = true;
+		
+		return this;
 	}
 });

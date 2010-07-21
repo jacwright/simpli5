@@ -140,7 +140,7 @@ Function.prototype.bind = function(obj) {
 	for (var i = 1, l = arguments.length; i < l; i++) {
 		args.push(arguments[i]);
 	}
-	return function() {
+	var func = function() {
 		var a = [];
 		for (var i = 0, l = arguments.length; i < l; i++) {
 			a.push(arguments[i]);
@@ -148,6 +148,10 @@ Function.prototype.bind = function(obj) {
 		a = a.concat(args);
 		return method.apply(obj, a);
 	}
+	func.toString = function() {
+		return method.toString();
+	}
+	return func;
 };
 
 Function.prototype.boundTo = function(obj) {
@@ -994,7 +998,7 @@ extend(HTMLElement.prototype, {
 			return this;
 		}
 	},
-	rect: function(value) {
+	rect: function(value, includeMargins) {
 		var rect;
 		if (value === undefined) {
 			rect = this.getBoundingClientRect();
@@ -1007,7 +1011,7 @@ extend(HTMLElement.prototype, {
 			var topOffset = this.offsetTop - rect.top;
 			if ('left' in value) this.css('left', value.left += leftOffset);
 			if ('top' in value) this.css('top', value.top += topOffset);
-			if ('top' in value || 'left' in value) {
+			if (includeMargins && ('top' in value || 'left' in value)) {
 				// fix for margins
 				rect = this.getBoundingClientRect();
 				if ('left' in value) this.css('left', value.left - (rect.left + leftOffset - value.left));
