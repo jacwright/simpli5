@@ -10,7 +10,7 @@ var Component, Configuration;
 	function initializeEvents(obj, element) {
 		var evts = obj.events;
 		 
-		if (!evts) return;
+		if (!evts || navigator.userAgent.indexOf('Firefox') != -1) return;
 		
 		for (var i = 0, l = evts.length; i < l; i++) {
 			var evt = evts[i];

@@ -83,9 +83,9 @@ extend(HTMLElement.prototype, {
 	},
 	text: function(value) {
 		if (value === undefined) {
-			return this.innerText;
+			return 'textContent' in this ? this.textContent : this.innerText;
 		} else {
-			this.innerText = value;
+			'textContent' in this ? this.textContent = value : this.innerText = value;
 		}
 		return this;
 	},

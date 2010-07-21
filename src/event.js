@@ -163,6 +163,7 @@ var EventDispatcher = new Class({
 (function() {
 	var add = Node.prototype.addEventListener, remove = Node.prototype.removeEventListener;
 	extend(Node.prototype, {
+		// added for hasEventListener method, doesn't work in Firefox TODO fix or remove
 		addEventListener: function(type, listener, capture) {
 			if (!this.__events) {
 				this.__events = {};
