@@ -154,13 +154,13 @@ var HoverMenu = new Component({
 		}
 		
 		if (left + menuRect.width >= window.innerWidth) {
-			left = rect.left - menuRect.width + 2;
+			left = rect.left - menuRect.width;
 			this.submenu.addClass('left');
 		} else {
 			this.submenu.removeClass('left');
 		}
 		if (top + menuRect.height >= window.innerHeight) {
-			top = rect.bottom - menuRect.height + 4;
+			top = rect.bottom - menuRect.height;
 			this.submenu.addClass('up');
 		} else {
 			this.submenu.removeClass('up');
