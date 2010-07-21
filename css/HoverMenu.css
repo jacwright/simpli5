@@ -30,7 +30,10 @@ menu.hover-menu-root, menu.hover-menu-root menu {
 	-webkit-border-radius: 4px;
 	-moz-border-radius: 4px;
 }
-menu.hover-menu-root:not(.below), menu.hover-menu-root menu {
+menu.hover-menu-root:not(.below) {
+	margin-top: -4px;
+}
+menu.hover-menu-root menu {
 	margin: -4px 0 0 -2px;
 }
 menu.hover-menu-root menu {
