@@ -305,7 +305,8 @@ var HoverMenuItem = new Component({
 	 * Selects the menu item if it has no submenu. Triggers the select event and closes the entire hover menu.
 	 * @param event not required
 	 */
-	select: function() {
+	select: function(event) {
+		if (event) event.stopPropagation();
 		if (this.disabled || this.submenu) return;
 		this.dispatchEvent(new CustomEvent('select', true));
 		this.menu.close();
