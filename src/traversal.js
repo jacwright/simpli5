@@ -18,7 +18,7 @@ extend(Element.prototype, {
 		return new ElementArray(this.querySelectorAll(selector));
 	},
 	matches: (Element.prototype.matchesSelector || Element.prototype.webkitMatchesSelector || Element.prototype.mozMatchesSelector || function(selector) {
-		return (document.find(selector).indexOf(this) != -1);
+		return (document.findAll(selector).indexOf(this) != -1);
 	}),
 	getChildren: function(selector) {
 		var children = new ElementArray(this.children);
