@@ -10,7 +10,7 @@ var ElementArray = new Class({
 		} else if (selector.nodeType) {
 			array.push(selector);
 		} else if (typeof selector === "string") {
-			array.merge(this.context.querySelectorAll(selector));
+			array.merge(document.querySelectorAll(selector));
 		} else {
 			array.merge(selector);
 		}
@@ -40,7 +40,9 @@ var ElementArray = new Class({
 	 */
 	merge: function(elems) {
 		if (elems == null) return;
-		elems = toArray(elems);
+		elems = toArray(elems).filter(function(element) {
+			return !!element.tagName;
+		});
 		this.push.apply(this, elems);
 	},
 

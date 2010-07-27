@@ -58,6 +58,7 @@
 								<param>binding.js</param>
 								<param>template.js</param>
 								<param>component.js</param>
+								<param>ajax.js</param>
 								<param>storage.js</param>
 								<param>cookie.js</param>
 							</jsSourceFiles>

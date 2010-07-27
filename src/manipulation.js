@@ -1,7 +1,9 @@
 
 extend(HTMLElement.prototype, {
 	makeClass: function(type) {
-		Class.makeClass(this, type);
+		if ( !(this instanceof type) ) {
+			Class.makeClass(this, type);
+		}
 		return this;
 	},
 	call: function(name) {
@@ -24,6 +26,11 @@ extend(HTMLElement.prototype, {
 			this.parentNode.removeChild(this);
 		}
 		return this;
+	},
+	replace: function(html) {
+		var nodes = this.before(html);
+		this.remove();
+		return nodes;
 	},
 	after: function(html) {
 		var frag = toFragment(html);

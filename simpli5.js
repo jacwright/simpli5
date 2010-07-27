@@ -212,7 +212,7 @@ var ElementArray = new Class({
 		} else if (selector.nodeType) {
 			array.push(selector);
 		} else if (typeof selector === "string") {
-			array.merge(this.context.querySelectorAll(selector));
+			array.merge(document.querySelectorAll(selector));
 		} else {
 			array.merge(selector);
 		}
@@ -242,7 +242,9 @@ var ElementArray = new Class({
 	 */
 	merge: function(elems) {
 		if (elems == null) return;
-		elems = toArray(elems);
+		elems = toArray(elems).filter(function(element) {
+			return !!element.tagName;
+		});
 		this.push.apply(this, elems);
 	},
 
@@ -645,7 +647,7 @@ var simpli5 = (function() {
 	function onDomLoaded() {
 		simpli5.dispatch('domready');
 		simpli5.mold(document.body);
-		simpli5.dispatch('ready');
+		simpli5.checkLoading();
 	}
 	
 	
@@ -658,6 +660,7 @@ var simpli5 = (function() {
 		 * Constructor
 		 */
 		constructor: function() {
+			this.ready = false;
 			document.addEventListener('DOMContentLoaded', onDomLoaded, false);
 		},
 		
@@ -715,15 +718,28 @@ var simpli5 = (function() {
 			for (var i in registry) {
 				var selector = this.selector(i);
 				try {
-					if (element.matches(selector)) element.makeClass(registry[i]);
+					if (element instanceof ElementArray) {
+						element.forEach(function(element) {
+							if (!element.__isComponent && element.matches(selector)) element.makeClass(registry[i]);
+						});
+					} else if (element.matches(selector)) element.makeClass(registry[i]);
 				} catch (e) {
 					if (e.name == 'SYNTAX_ERR') throw 'Invalid selector used to mold: ' + selector;
 					else throw e;
 				}
-				element.findAll(selector).makeClass(registry[i]);
+				element.findAll(selector).forEach(function(elem) {
+					if (!elem.__isComponent) elem.makeClass(registry[i]);
+				});
 			}
 			
 			return element;
+		},
+		
+		checkLoading: function() {
+			if (!simpli5.ready && External.loadCount == 0) {
+				simpli5.ready = true;
+				simpli5.dispatch('ready');
+			}
 		}
 	});
 	
@@ -1049,7 +1065,9 @@ ElementArray.map({
 
 extend(HTMLElement.prototype, {
 	makeClass: function(type) {
-		Class.makeClass(this, type);
+		if ( !(this instanceof type) ) {
+			Class.makeClass(this, type);
+		}
 		return this;
 	},
 	call: function(name) {
@@ -1072,6 +1090,11 @@ extend(HTMLElement.prototype, {
 			this.parentNode.removeChild(this);
 		}
 		return this;
+	},
+	replace: function(html) {
+		var nodes = this.before(html);
+		this.remove();
+		return nodes;
 	},
 	after: function(html) {
 		var frag = toFragment(html);
@@ -1888,6 +1911,7 @@ var Component, Configuration;
 	
 	Component = new Class({
 		extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
+		__isComponent: true,
 		
 		constructor: function(implementation) {
 			// call the constructor inside our custom constructor
@@ -1960,6 +1984,276 @@ var Component, Configuration;
 	});
 
 })();
+
+
+var External = new Component({
+	extend: Component,
+	template: new Template('<external></external>'),
+	register: 'external, [external]',
+	properties: ['url', 'external', 'auto-load'],
+	events: ['loaded'],
+	scriptRemoveExp: /<script[\s\S]+?script>/g,
+	scriptExp: /<script[^>]*>([\s\S]*?)<\/script>/g,
+	scriptSrcExp: /<script[^>]*src="([^"]*)"[^>]*>/,
+	
+	constructor: function() {
+		this.autoLoad = true;
+	},
+	
+	init: function() {
+		if (this.external) this.url = this.external;
+		if (this.autoLoad && this.url) this.load();
+	},
+	
+	load: function() {
+		External.loadCount += 1;
+		Ajax.send({
+			method: 'get',
+			url: this.url,
+			complete: this.onLoaded.boundTo(this),
+			error: this.onError.boundTo(this)
+		});
+	},
+	
+	onLoaded: function(data) {
+		External.loadCount -= 1;
+		
+		if (!data) return;
+		
+		var html = data.replace(this.scriptRemoveExp, '');
+		var nodes = this.replace(html);
+		if (nodes.length == 1) {
+			var node = nodes[0];
+			for (var i = 0; i < this.attributes.length; i++) {
+				var attr = this.attributes[i];
+				if (attr.nodeName == 'external' || (attr.nodeName == 'url' && this.tagName == 'EXTERNAL')) continue;
+				node.setAttribute(attr.nodeName, attr.nodeValue);
+			}
+		}
+		simpli5.mold(nodes);
+		
+		var head = document.find('head'), match;
+		
+		while ( (match = this.scriptExp.exec(data)) != null) {
+			var script = document.createElement('script'), txt = match[0], content = match[1], src = txt.match(this.scriptSrcExp);
+			script.type = 'text/javascript';
+			if (src) script.src = src[1];
+			script.innerHTML = content;
+			head.appendChild(script);
+		}
+		
+		simpli5.checkLoading();
+	},
+	
+	onError: function() {
+		External.loadCount -= 1;
+	}
+});
+
+External.loadCount = 0;
+
+var Ajax = {
+	defaults: {
+		method: 'get',
+		async: true,
+		format: function(data) { return data; }
+	},
+	
+	send: function(options) {
+		extend(options, Ajax.defaults);
+		
+		var xhr = new XMLHttpRequest(), response = new Response();
+		response.xhr = xhr;
+		
+		if (options.user) {
+			xhr.open(options.method, options.url, options.async, options.user, options.password);
+		} else {
+			xhr.open(options.method, options.url, options.async);
+		}
+		
+		if (options.headers) {
+			for (var i in options.headers) {
+				if (!options.headers.hasOwnProperty(i)) continue;
+				xhr.setRequestHeader(i, options.headers[i]);
+			}
+		}
+
+		if (options.progress) response.on('progress', options.complete);
+		if (options.complete) response.on('complete', options.complete);
+		if (options.error) response.on('error', options.error);
+		
+		var lastIndex = 0, results;
+		xhr.onreadystatechange = function() {
+			if (xhr.readyState == 3) {
+				try {
+					results = options.format(xhr.responseText.substring(lastIndex));
+					lastIndex = xhr.responseText.length;
+				} catch(e) {}
+				response.trigger('progress', results);
+			} else if (xhr.readyState == 4) {
+				try {
+					results = options.format(xhr.responseText);
+				} catch(e) {
+					// formating error
+					alert(e);
+				}
+				response.trigger('complete', results);
+			}
+		}
+		xhr.send();
+		return response;
+	}
+};
+
+/**
+ * Represents a single service which can be 
+ */
+var AjaxService = new Component({
+	extend: Component,
+	register: 'services service',
+	properties: ['prefix', 'user', 'password'],
+	events: ['progress', 'complete', 'error'],
+	
+	constructor: function() {
+		var ajax = this.ajax = new AjaxEndpoint(), service = this;
+		this.headers = {};
+		this.prefix = '';
+		
+		this.findAll('headers header').forEach(function(header) {
+			if (!header.hasAttribute('name') || !header.hasAttribute('value')) return;
+			this.headers[header.getAttribute('name')] = header.getAttribute('value');
+		});
+		
+		this.calls = this.findAll('call').forEach(function(call) {
+			call.service = service;
+		});
+	},
+	
+	send: function(method, url) {
+		return Ajax.send({
+			method: method,
+			url: this.prefix + url,
+			format: this.format,
+			headers: this.headers,
+			user: this.user,
+			password: this.password
+		});
+	},
+	
+	format: function(data) {
+		if (data == '' || data == null) return null;
+		else return JSON.parse(data);
+	}
+});
+
+var AjaxCall = new Component({
+	extend: Component,
+	register: 'services service call',
+	properties: ['method', 'url', 'autoTrigger'],
+	events: ['progress', 'complete', 'error'],
+	
+	constructor: function() {
+		this.css('display', 'none');
+		this.autoTrigger = false;
+		this.url = '';
+		this.method = 'get';
+	},
+	
+	get autoTrigger() {
+		return this._autoTrigger || false;
+	},
+	set autoTrigger(value) {
+		if (this._autoTrigger == value) return;
+		this._autoTrigger = value;
+		
+		clearInterval(this._autoTriggerInterval);
+		
+		if (value === false) return;
+		
+		this.trigger();
+		if (value === true || isNaN(value *= 1000)) return; // that's all
+		
+		this._autoTriggerInterval = setInterval(this.trigger.boundTo(this), value);
+	},
+	
+	trigger: function() {
+		this.service.send(this.method, this.url).on('complete', this.complete.boundTo(this));
+	},
+	
+	progress: function(data) {
+		this.dispatchEvent(new DataEvent('progress', data));
+	},
+	
+	complete: function(data) {
+		this.dispatchEvent(new DataEvent('complete', data));
+	},
+	
+	error: function(status, data) {
+		this.dispatchEvent(new ErrorEvent('error', status, data));
+	}
+});
+
+var Response = new Class({
+	
+	constructor: function() {
+		this.status = 'progress';
+		this.handlers = {complete: [], error: [], progress: []};
+	},
+	
+	on: function(type, handler) {
+		if (!this.handlers.hasOwnProperty(type)) return;
+		var params = toArray(arguments).slice(1);
+		this.handlers[type].push(params);
+	},
+	
+	un: function(type, handler) {
+		if (!this.handlers.hasOwnProperty(type)) {
+			return;
+		}
+		var handlers = this.handlers[type];
+		for (var i = 0; i < handlers.length; i++) {
+			if (handler == handlers[i][0]) {
+				handlers.splice(i--, 1);
+			}
+		}
+	},
+	
+	triggerComplete: function(data) {
+		this.trigger('complete', data);
+	},
+	
+	triggerError: function(error) {
+		this.trigger('error', error);
+	},
+	
+	trigger: function(type, data) {
+		if (!this.handlers.hasOwnProperty(type)) return;
+		this.status = type;
+		var handlers = this.handlers[type];
+		
+		while (handlers.length) {
+			var params = handlers.shift();
+			var handler = params[0];
+			params[0] = data;
+			var result = handler.apply(data, params);
+			if (result !== undefined) {
+				if (result instanceof Response) {
+					result.on('complete', this.triggerComplete.boundTo(this));
+					result.on('error', this.triggerError.boundTo(this));
+					return; // pick back up after this response is done
+				} else {
+					if (result instanceof Error && this.status == 'complete') {
+						this.status = 'error';
+						handlers = this.handlers.error;
+					}
+					data = result;
+				}
+			}
+		}
+	}
+});
+
+
 
 Storage.prototype.get = function(key) {
     return JSON.parse(this.getItem(key));

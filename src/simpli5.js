@@ -15,7 +15,7 @@ var simpli5 = (function() {
 	function onDomLoaded() {
 		simpli5.dispatch('domready');
 		simpli5.mold(document.body);
-		simpli5.dispatch('ready');
+		simpli5.checkLoading();
 	}
 	
 	
@@ -28,6 +28,7 @@ var simpli5 = (function() {
 		 * Constructor
 		 */
 		constructor: function() {
+			this.ready = false;
 			document.addEventListener('DOMContentLoaded', onDomLoaded, false);
 		},
 		
@@ -85,15 +86,28 @@ var simpli5 = (function() {
 			for (var i in registry) {
 				var selector = this.selector(i);
 				try {
-					if (element.matches(selector)) element.makeClass(registry[i]);
+					if (element instanceof ElementArray) {
+						element.forEach(function(element) {
+							if (!element.__isComponent && element.matches(selector)) element.makeClass(registry[i]);
+						});
+					} else if (element.matches(selector)) element.makeClass(registry[i]);
 				} catch (e) {
 					if (e.name == 'SYNTAX_ERR') throw 'Invalid selector used to mold: ' + selector;
 					else throw e;
 				}
-				element.findAll(selector).makeClass(registry[i]);
+				element.findAll(selector).forEach(function(elem) {
+					if (!elem.__isComponent) elem.makeClass(registry[i]);
+				});
 			}
 			
 			return element;
+		},
+		
+		checkLoading: function() {
+			if (!simpli5.ready && External.loadCount == 0) {
+				simpli5.ready = true;
+				simpli5.dispatch('ready');
+			}
 		}
 	});
 	

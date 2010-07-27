@@ -80,6 +80,7 @@ var Component, Configuration;
 	
 	Component = new Class({
 		extend: window.HTMLUnknownElement || HTMLElement, // HTMLUnknownElement for Firefox quirkiness
+		__isComponent: true,
 		
 		constructor: function(implementation) {
 			// call the constructor inside our custom constructor
@@ -152,3 +153,70 @@ var Component, Configuration;
 	});
 
 })();
+
+
+var External = new Component({
+	extend: Component,
+	template: new Template('<external></external>'),
+	register: 'external, [external]',
+	properties: ['url', 'external', 'auto-load'],
+	events: ['loaded'],
+	scriptRemoveExp: /<script[\s\S]+?script>/g,
+	scriptExp: /<script[^>]*>([\s\S]*?)<\/script>/g,
+	scriptSrcExp: /<script[^>]*src="([^"]*)"[^>]*>/,
+	
+	constructor: function() {
+		this.autoLoad = true;
+	},
+	
+	init: function() {
+		if (this.external) this.url = this.external;
+		if (this.autoLoad && this.url) this.load();
+	},
+	
+	load: function() {
+		External.loadCount += 1;
+		Ajax.send({
+			method: 'get',
+			url: this.url,
+			complete: this.onLoaded.boundTo(this),
+			error: this.onError.boundTo(this)
+		});
+	},
+	
+	onLoaded: function(data) {
+		External.loadCount -= 1;
+		
+		if (!data) return;
+		
+		var html = data.replace(this.scriptRemoveExp, '');
+		var nodes = this.replace(html);
+		if (nodes.length == 1) {
+			var node = nodes[0];
+			for (var i = 0; i < this.attributes.length; i++) {
+				var attr = this.attributes[i];
+				if (attr.nodeName == 'external' || (attr.nodeName == 'url' && this.tagName == 'EXTERNAL')) continue;
+				node.setAttribute(attr.nodeName, attr.nodeValue);
+			}
+		}
+		simpli5.mold(nodes);
+		
+		var head = document.find('head'), match;
+		
+		while ( (match = this.scriptExp.exec(data)) != null) {
+			var script = document.createElement('script'), txt = match[0], content = match[1], src = txt.match(this.scriptSrcExp);
+			script.type = 'text/javascript';
+			if (src) script.src = src[1];
+			script.innerHTML = content;
+			head.appendChild(script);
+		}
+		
+		simpli5.checkLoading();
+	},
+	
+	onError: function() {
+		External.loadCount -= 1;
+	}
+});
+
+External.loadCount = 0;
