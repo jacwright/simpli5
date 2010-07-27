@@ -17,20 +17,26 @@ var Stack = new Component({
 	extend: Component,
 	template: new Template('<stack></stack>'),
 	events: ['change'],
-	properties: ['selected', 'selected-index', 'history-enabled', 'reset-on-page-unknown'],
+	properties: ['selected', 'selected-index', 'history-enabled', 'default-page'],
 	register: 'stack',
 		
 	constructor: function() {
 		this.on('DOMNodeInserted', this.onChild.boundTo(this));
 		this.on('DOMNodeRemoved', this.onChild.boundTo(this));
 		this.getChildren().hide();
-		if (!this.selected) this.selected = this.children.length ? this.children[0] : null;
-		else this.selected.show(true);
 		var frames = this.frames = {};
 		
 		this.getChildren().forEach(function(child) {
 			frames[child.name || child.tagName.toLowerCase()] = child;
 		});
+	},
+
+	/**
+	 * Called after all attribute properties have been initialized and events have been created.
+	 */
+	init: function() {
+		if (!this.selected) this.selected = this.children.length ? this.children[0] : null;
+		else this.selected.show(true);
 	},
 
 	/**
@@ -57,17 +63,8 @@ var Stack = new Component({
 		return this._selected;
 	},
 	set selected(page) {
-		if (typeof page == 'number' || isNumeric(page)) {
-			page = this.children[parseFloat(page)];
-		} else if (typeof page == 'string') {
-			page = this.frames[page];
-		} else if (!page.tagName) {
-			return;
-		}
-
-        if(!page && this._resetOnPageUnknown){
-            page = this.children[0];
-        }
+		page = this.getPage(page);
+		if (!page && this.defaultPage) page = this.getPage(this.defaultPage);
 		
 		if (!page || this._selected == page) return;
 		
@@ -116,16 +113,18 @@ var Stack = new Component({
 	},
 
     /**
-     * Changes the behavior of setSelected when the provided page is not known.  The default behavior is to do nothing.
-     * When "resetOnPageUnknown" is set to true, then the stack will flip to the first element in the stack when
-     * encountering an unknown page.  This is useful on pages with 2 stacks where the user typically interacts with
-     * only one at a time, and while interacting with one stack, the other should be reverted to the original element.
+     * Changes the behavior of set selected when the provided page is not known.  The default behavior is to do nothing.
+     * When "defaultPage" is set, that page or index will be shown. This is useful on pages with 2 stacks where the user
+     * typically interacts with only one at a time, and while interacting with one stack, the other should be reverted
+     * to the default element.
      */
-    get resetOnPageUnknown() {
-        return this._resetOnPageUnknown;
+    get defaultPage() {
+        return this._defaultPage;
     },
-    set resetOnPageUnknown(value){
-        this._resetOnPageUnknown = value;
+    set defaultPage(value) {
+	    if (this._defaultPage == value) return;
+        this._defaultPage = value;
+	    if (!this.selected) this.selected = value;
     },
 
 	/**
@@ -137,6 +136,15 @@ var Stack = new Component({
 	toggle: function() {
 		if (this.selectedIndex == this.children.length - 1) this.selectedIndex = 0;
 		else this.selectedIndex += 1;
+	},
+
+	/**
+	 * @private
+	 */
+	getPage: function(page) {
+		if (page.tagName) return page;
+		if (typeof page == 'number' || isNumeric(page)) return this.children[parseFloat(page)];
+		if (typeof page == 'string') return this.frames[page];
 	},
 
 	/**
