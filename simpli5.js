@@ -414,11 +414,9 @@ var CustomMutationEvent = new Class({
 
 
 var DataEvent = new Class({
-	extend: Event,
+	extend: CustomEvent,
 	constructor: function(type, data) {
-		var evt = document.createEvent('Events');
-		evt.initEvent(type, false, false);
-		Class.makeClass(evt, this.constructor, true);
+		var evt = CustomEvent.call(this, type); // super(type);
 		evt.data = data;
 		return evt;
 	}
@@ -428,7 +426,7 @@ var ChangeEvent = new Class({
 	extend: CustomEvent,
 	
 	constructor: function(type, oldValue, newValue) {
-		var evt = CustomEvent.call(this, type); // super('change');
+		var evt = CustomEvent.call(this, type); // super(type);
 		evt.oldValue = oldValue;
 		evt.newValue = newValue;
 		return evt;
@@ -437,11 +435,9 @@ var ChangeEvent = new Class({
 
 
 var ArrayChangeEvent = new Class({
-	extend: Event,
+	extend: CustomEvent,
 	constructor: function(action, startIndex, endIndex, items) {
-		var evt = document.createEvent('Events');
-		evt.initEvent('change', false, false);
-		Class.makeClass(evt, this.constructor, true);
+		var evt = CustomEvent.call(this, 'change'); // super(type);
 		evt.action = action;
 		evt.startIndex = startIndex;
 		evt.endIndex = endIndex;
@@ -452,16 +448,26 @@ var ArrayChangeEvent = new Class({
 
 
 var ErrorEvent = new Class({
-	extend: Event,
+	extend: CustomEvent,
 	constructor: function(type, code, msg) {
-		var evt = document.createEvent('Events');
-		evt.initEvent(type, false, false);
-		Class.makeClass(evt, this.constructor, true);
+		var evt = CustomEvent.call(this, type); // super(type);
 		evt.code = code;
 		evt.msg = msg;
 		return evt;
 	}
 });
+
+
+var HistoryEvent = new Class({
+	extend: CustomEvent,
+	constructor: function(type, hash, state) {
+		var evt = CustomEvent.call(this, type); // super(type);
+		evt.hash = hash != null ? hash : window.location.hash.substring(1);
+		evt.state = state;
+		return evt;
+	}
+});
+
 
 var EventDispatcher = new Class({
 	createClosures: function(listeners) {
@@ -536,6 +542,7 @@ var EventDispatcher = new Class({
 (function() {
 	var add = Node.prototype.addEventListener, remove = Node.prototype.removeEventListener;
 	extend(Node.prototype, {
+		// added for hasEventListener method, doesn't work in Firefox TODO fix or remove
 		addEventListener: function(type, listener, capture) {
 			if (!this.__events) {
 				this.__events = {};
@@ -746,8 +753,8 @@ extend(Element.prototype, {
 	matches: (Element.prototype.matchesSelector || Element.prototype.webkitMatchesSelector || Element.prototype.mozMatchesSelector || function(selector) {
 		return (document.findAll(selector).indexOf(this) != -1);
 	}),
-	getChildren: function(selector) {try {
-		var children = new ElementArray(this.children);} catch(e) {console.log(this, this.constructor, this.__proto__);}
+	getChildren: function(selector) {
+		var children = new ElementArray(this.children);
 		if (selector) return children.filterBy(selector);
 		return children;
 	},

@@ -16,8 +16,8 @@
 var Stack = new Component({
 	extend: Component,
 	template: new Template('<stack></stack>'),
-	events: ['change'],
-	properties: ['selected', 'selected-index', 'history-enabled', 'default-page'],
+	events: ['change', 'history'],
+	properties: ['selected', 'selected-index', 'history-enabled'],
 	register: 'stack',
 		
 	constructor: function() {
@@ -35,10 +35,7 @@ var Stack = new Component({
 	 * Called after all attribute properties have been initialized and events have been created.
 	 */
 	init: function() {
-		if (!this.selected) {
-			if (this.defaultPage) this.selected = this.defaultPage;
-			else this.selected = this.children.length ? this.children[0] : null;
-		}
+		if (!this.selected) this.selected = this.children.length ? this.children[0] : null;
 		else this.selected.show(true);
 	},
 
@@ -67,7 +64,6 @@ var Stack = new Component({
 	},
 	set selected(page) {
 		page = this.getPage(page);
-		if (!page && typeof this._defaultPage != 'undefined') page = this.getPage(this._defaultPage);
 		
 		if (!page || this._selected == page) return;
 		
@@ -115,21 +111,6 @@ var Stack = new Component({
 		}
 	},
 
-    /**
-     * Changes the behavior of set selected when the provided page is not known.  The default behavior is to do nothing.
-     * When "defaultPage" is set, that page or index will be shown. This is useful on pages with 2 stacks where the user
-     * typically interacts with only one at a time, and while interacting with one stack, the other should be reverted
-     * to the default element.
-     */
-    get defaultPage() {
-        return this._defaultPage;
-    },
-    set defaultPage(value) {
-	    if (this._defaultPage == value) return;
-        this._defaultPage = value;
-	    if (!this.selected) this.selected = value;
-    },
-
 	/**
 	 * Toggles between selected elements in the stack by index. If the current selectedIndex is 0 then after calling
 	 * toggle() the selectedIndex will be 1. If the current selected element is the last element, then toggle will
@@ -154,10 +135,16 @@ var Stack = new Component({
 	 * @private
 	 */
 	onHashChange : function() {
-		this.selected = location.hash.substring(1)
+		var page = location.hash.substring(1)
 				|| this.getAttribute('selected')
 				|| this.getAttribute('selected-index')
 				|| 0;
+		
+		var event = new HistoryEvent('history');
+		var current = this.selected;
+		this.selected = page;
+		event.pageChanged = (this.selected != current);
+		this.dispatchEvent(event);
 	},
 
 	/**
