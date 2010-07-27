@@ -67,7 +67,7 @@ var Stack = new Component({
 	},
 	set selected(page) {
 		page = this.getPage(page);
-		if (!page && this.defaultPage) page = this.getPage(this.defaultPage);
+		if (!page && typeof this._defaultPage != 'undefined') page = this.getPage(this._defaultPage);
 		
 		if (!page || this._selected == page) return;
 		
