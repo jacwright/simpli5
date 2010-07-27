@@ -35,7 +35,10 @@ var Stack = new Component({
 	 * Called after all attribute properties have been initialized and events have been created.
 	 */
 	init: function() {
-		if (!this.selected) this.selected = this.children.length ? this.children[0] : null;
+		if (!this.selected) {
+			if (this.defaultPage) this.selected = this.defaultPage;
+			else this.selected = this.children.length ? this.children[0] : null;
+		}
 		else this.selected.show(true);
 	},
 
