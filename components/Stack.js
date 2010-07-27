@@ -17,7 +17,7 @@ var Stack = new Component({
 	extend: Component,
 	template: new Template('<stack></stack>'),
 	events: ['change'],
-	properties: ['selected', 'selected-index', 'history-enabled'],
+	properties: ['selected', 'selected-index', 'history-enabled', 'reset-on-page-unknown'],
 	register: 'stack',
 		
 	constructor: function() {
@@ -64,6 +64,10 @@ var Stack = new Component({
 		} else if (!page.tagName) {
 			return;
 		}
+
+        if(!page && this._resetOnPageUnknown){
+            page = this.children[0];
+        }
 		
 		if (!page || this._selected == page) return;
 		
@@ -110,6 +114,19 @@ var Stack = new Component({
 			window.un("hashchange", this.onHashChange.boundTo(this));
 		}
 	},
+
+    /**
+     * Changes the behavior of setSelected when the provided page is not known.  The default behavior is to do nothing.
+     * When "resetOnPageUnknown" is set to true, then the stack will flip to the first element in the stack when
+     * encountering an unknown page.  This is useful on pages with 2 stacks where the user typically interacts with
+     * only one at a time, and while interacting with one stack, the other should be reverted to the original element.
+     */
+    get resetOnPageUnknown() {
+        return this._resetOnPageUnknown;
+    },
+    set resetOnPageUnknown(value){
+        this._resetOnPageUnknown = value;
+    },
 
 	/**
 	 * Toggles between selected elements in the stack by index. If the current selectedIndex is 0 then after calling
