@@ -1,79 +1,56 @@
 
-var Ajax = new Class({
-	extend: EventDispatcher,
-	
-	constructor: function() {
-		this.headers = {};
+var Ajax = {
+	defaults: {
+		method: 'get',
+		async: true,
+		format: function(data) { return data; }
 	},
 	
-	setRequestHeader: function(name, value) {
-		this.headers[name] = value;
-	},
-	
-	send: function(method, url, user, password) {
+	send: function(options) {
+		extend(options, Ajax.defaults);
+		
 		var xhr = new XMLHttpRequest(), response = new Response();
 		response.xhr = xhr;
 		
-		if (user) {
-			xhr.open(method, url, true, user, password);
+		if (options.user) {
+			xhr.open(options.method, options.url, options.async, options.user, options.password);
 		} else {
-			xhr.open(method, url);
-		}
-		for (var i in this.headers) {
-			if (!this.headers.hasOwnProperty(i)) continue;
-			xhr.setRequestHeader(i, this.headers[i]);
+			xhr.open(options.method, options.url, options.async);
 		}
 		
-		var lastIndex = 0, results, ajax = this;
+		if (options.headers) {
+			for (var i in options.headers) {
+				if (!options.headers.hasOwnProperty(i)) continue;
+				xhr.setRequestHeader(i, options.headers[i]);
+			}
+		}
+
+		if (options.progress) response.on('progress', options.complete);
+		if (options.complete) response.on('complete', options.complete);
+		if (options.error) response.on('error', options.error);
+		
+		var lastIndex = 0, results;
 		xhr.onreadystatechange = function() {
 			if (xhr.readyState == 3) {
 				try {
-					results = ajax.format(xhr.responseText.substring(lastIndex));
+					results = options.format(xhr.responseText.substring(lastIndex));
 					lastIndex = xhr.responseText.length;
 				} catch(e) {}
-				ajax.dispatchEvent(new DataEvent('progress', results));
 				response.trigger('progress', results);
 			} else if (xhr.readyState == 4) {
 				try {
-					results = ajax.format(xhr.responseText);
+					results = options.format(xhr.responseText);
 				} catch(e) {
 					// formating error
 					alert(e);
 				}
-				ajax.dispatchEvent(new DataEvent('complete', results));
 				response.trigger('complete', results);
 			}
 		}
 		xhr.send();
 		return response;
-	},
-	
-	format: function(data) {
-		if (data == '' || data == null) return null;
-		else return JSON.parse(data);
-	},
-	
-	get: function() {
-		
-	},
-	
-	post: function() {
-		
-	},
-	
-	put: function() {
-		
 	}
-//	
-//		var xhr = new XMLHttpRequest();
-//		xhr.open('get', '/rest/engagement/posts');
-//		xhr.setRequestHeader('Accept', 'application/json');
-//		xhr.onreadystatechange = function() {
-//			if (xhr.readyState != 4) return;
-//			document.find('#articles').data = JSON.parse(xhr.responseText);
-//		}
-//		xhr.send();
-});
+};
 
 /**
  * Represents a single service which can be 
@@ -85,12 +62,13 @@ var AjaxService = new Component({
 	events: ['progress', 'complete', 'error'],
 	
 	constructor: function() {
-		var ajax = this.ajax = new Ajax(), service = this;
+		var ajax = this.ajax = new AjaxEndpoint(), service = this;
+		this.headers = {};
 		this.prefix = '';
 		
 		this.findAll('headers header').forEach(function(header) {
 			if (!header.hasAttribute('name') || !header.hasAttribute('value')) return;
-			ajax.setRequestHeader(header.getAttribute('name'), header.getAttribute('value'));
+			this.headers[header.getAttribute('name')] = header.getAttribute('value');
 		});
 		
 		this.calls = this.findAll('call').forEach(function(call) {
@@ -99,7 +77,19 @@ var AjaxService = new Component({
 	},
 	
 	send: function(method, url) {
-		return this.ajax.send(method, this.prefix + url, this.user, this.password);
+		return Ajax.send({
+			method: method,
+			url: this.prefix + url,
+			format: this.format,
+			headers: this.headers,
+			user: this.user,
+			password: this.password
+		});
+	},
+	
+	format: function(data) {
+		if (data == '' || data == null) return null;
+		else return JSON.parse(data);
 	}
 });
 
@@ -154,7 +144,7 @@ var Response = new Class({
 	
 	constructor: function() {
 		this.status = 'progress';
-		this.handlers = {complete: [], fault: [], progress: []};
+		this.handlers = {complete: [], error: [], progress: []};
 	},
 	
 	on: function(type, handler) {
@@ -179,8 +169,8 @@ var Response = new Class({
 		this.trigger('complete', data);
 	},
 	
-	triggerFault: function(error) {
-		this.trigger('fault', error);
+	triggerError: function(error) {
+		this.trigger('error', error);
 	},
 	
 	trigger: function(type, data) {
@@ -196,12 +186,12 @@ var Response = new Class({
 			if (result !== undefined) {
 				if (result instanceof Response) {
 					result.on('complete', this.triggerComplete.boundTo(this));
-					result.on('fault', this.triggerFault.boundTo(this));
+					result.on('error', this.triggerError.boundTo(this));
 					return; // pick back up after this response is done
 				} else {
 					if (result instanceof Error && this.status == 'complete') {
-						this.status = 'fault';
-						handlers = this.handlers.fault;
+						this.status = 'error';
+						handlers = this.handlers.error;
 					}
 					data = result;
 				}
