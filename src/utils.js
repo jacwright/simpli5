@@ -10,12 +10,24 @@ function toArray(iterable) {
 	return arr;
 }
 
-function extend(obj, extension) {
-	if (arguments.length == 1) {
+/**
+ * 
+ * @param obj
+ * @param extension
+ * @param [overwrite]
+ */
+function extend(obj, extension, overwrite) {
+	if (this != window) {
 		obj = this;
 		extension = obj;
+		overwrite = extension;
 	}
+	
 	for (var i in extension) {
+		if (overwrite === false && i in obj) {
+			continue;
+		}
+		
 		var getter = extension.__lookupGetter__(i), setter = extension.__lookupSetter__(i);
 		if (getter || setter) {
 			if (getter) obj.__defineGetter__(i, getter);
@@ -24,6 +36,8 @@ function extend(obj, extension) {
 			obj[i] = extension[i];
 		}
 	}
+	
+	return obj;
 }
 
 String.trim = function(str) {

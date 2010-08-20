@@ -15,6 +15,7 @@ var simpli5 = (function() {
 	function onDomLoaded() {
 		simpli5.dispatch('domready');
 		simpli5.mold(document.body);
+		simpli5.dispatch('molded');
 		simpli5.checkLoading();
 	}
 	
@@ -86,7 +87,7 @@ var simpli5 = (function() {
 			for (var i in registry) {
 				var selector = this.selector(i);
 				try {
-					if (element instanceof ElementArray) {
+					if (element instanceof Array) {
 						element.forEach(function(element) {
 							if (!element.__isComponent && element.matches(selector)) element.makeClass(registry[i]);
 						});
@@ -104,9 +105,8 @@ var simpli5 = (function() {
 		},
 		
 		checkLoading: function() {
-			if (!simpli5.ready && External.loadCount == 0) {
-				simpli5.ready = true;
-				simpli5.dispatch('ready');
+			if (External.loadCount == 0) {
+				simpli5.dispatch('ready', true);
 			}
 		}
 	});

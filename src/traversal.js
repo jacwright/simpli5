@@ -2,8 +2,10 @@
 extend(Node.prototype, {
 	parent: function(selector) {
 		var node = this.parentNode;
+		var isElement = !!selector.tagName;
 		while (node) {
-			if ('matches' in node && node.matches(selector)) return node;
+			if (isElement && node == selector) return node;
+			else if ('matches' in node && node.matches(selector)) return node;
 			node = node.parentNode;
 		}
 		return null;

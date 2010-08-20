@@ -151,18 +151,36 @@ var EventDispatcher = new Class({
 		};
 		return this;
 	},
-	dispatchEvent: function(event) {
+	listen: function(selector, type, listener) {
+		var wrap = function(event) {
+			var target = event.target.parent(selector);
+			if (target) {
+				return listener.call(target, event);
+			}
+		}
+		if (!listener.hasOwnProperty('__listen')) listener.__listen = {};
+		listener.__listen[simpli5.getId(this)] = wrap;
+		return this.on(type, wrap);
+	},
+	unlisten: function(selector, type, listener) {
+		if (!listener.hasOwnProperty('__listen')) return;
+		var wrap = listener.__listen[simpli5.getId(this)];
+		if (wrap) this.un(type, wrap);
+		return this;
+	},
+	dispatchEvent: function(event, clear) {
 		if (!this.__events) return;
 		var events = this.__events[event.type];
 		if (!events) return;
+		if (clear) delete this.__events[event.type];
 		for (var i = 0, l = events.length; i < l; i++) {
 			events[i].call(this, event);
 		}
 	},
-	dispatch: function(eventType) {
+	dispatch: function(eventType, clear) {
 		if (!this.__events || !this.__events[eventType] || !this.__events[eventType].length) return;
 		
-		this.dispatchEvent(new CustomEvent(eventType));
+		this.dispatchEvent(new CustomEvent(eventType), clear);
 	}
 });
 
@@ -205,7 +223,9 @@ extend(window, {
 
 ElementArray.map({
 	on: 'forEach',
-	un: 'forEach'
+	un: 'forEach',
+	listen: 'forEach',
+	unlisten: 'forEach'
 });
 
 

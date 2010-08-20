@@ -10,7 +10,7 @@ var List = new Component({
 		if (this.children.length) {
 			this.itemTemplate = new Template(fromElement(this.children[0]));
 			this.itemTemplate.compileBound();
-			while (this.children.length) this.removeChild(this.children[0]);
+			this.removeChild(this.children[0]);
 		}
 	},
 	

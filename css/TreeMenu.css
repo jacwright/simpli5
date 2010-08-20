@@ -7,8 +7,11 @@ tree-menu {
 	-moz-user-select: none;
 	overflow: auto;
 }
-tree-menu > menu {
+tree-menu menu {
 	display: block;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 tree-menu menu-item {
 	display: block;
@@ -44,12 +47,24 @@ tree-menu content {
 	position: relative;
 	overflow: hidden;
 }
-tree-menu img {
+tree-menu icon-space {
 	display: inline-block;
 	float: left;
-	padding: 1px;
+	padding-right: 1px;
 	width: 16px;
 	height: 16px;
+	border: 1px solid transparent;
+	
+	border-right: none;
+	border-radius: 3px;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+tree-menu icon {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	background: url(../images/page_white_text.png) no-repeat 50% 50%;
 }
 tree-menu text {
 	display: inline-block;
@@ -57,7 +72,14 @@ tree-menu text {
 	font: 13px/16px arial, sans-serif;
 	color: #444;
 	border: 1px solid transparent;
-	border-radius: 2px;
+	border-left: none;
+	border-radius: 3px;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+tree-menu.popout {
+	position: absolute;
+	z-index: 500;
 }
 tree-menu.popout text {
 	background: #fff;
@@ -66,9 +88,9 @@ tree-menu.popout text {
 tree-menu content:hover text {
 	color: #222;
 }
-tree-menu menu-item.selected > content > text {
+tree-menu menu-item.selected > content > * {
 	background-color: #b3e6ff;
-	border: 1px solid #8cd8ff;
+	border-color: #8cd8ff;
 	color: #000;
 }
 tree-menu menu-item menu {

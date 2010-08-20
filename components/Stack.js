@@ -24,11 +24,6 @@ var Stack = new Component({
 		this.on('DOMNodeInserted', this.onChild.boundTo(this));
 		this.on('DOMNodeRemoved', this.onChild.boundTo(this));
 		this.getChildren().hide();
-		var frames = this.frames = {};
-		
-		this.getChildren().forEach(function(child) {
-			frames[child.name || child.tagName.toLowerCase()] = child;
-		});
 	},
 
 	/**
@@ -128,7 +123,10 @@ var Stack = new Component({
 	getPage: function(page) {
 		if (page.tagName) return page;
 		if (typeof page == 'number' || isNumeric(page)) return this.children[parseFloat(page)];
-		if (typeof page == 'string') return this.frames[page];
+		if (typeof page == 'string') {
+			var children = this.getChildren(page + ', [name=' + page + ']');
+			return children.length ? children[0] : null;
+		}
 	},
 
 	/**

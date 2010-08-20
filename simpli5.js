@@ -10,12 +10,24 @@ function toArray(iterable) {
 	return arr;
 }
 
-function extend(obj, extension) {
-	if (arguments.length == 1) {
+/**
+ * 
+ * @param obj
+ * @param extension
+ * @param [overwrite]
+ */
+function extend(obj, extension, overwrite) {
+	if (this != window) {
 		obj = this;
 		extension = obj;
+		overwrite = extension;
 	}
+	
 	for (var i in extension) {
+		if (overwrite === false && i in obj) {
+			continue;
+		}
+		
 		var getter = extension.__lookupGetter__(i), setter = extension.__lookupSetter__(i);
 		if (getter || setter) {
 			if (getter) obj.__defineGetter__(i, getter);
@@ -24,6 +36,8 @@ function extend(obj, extension) {
 			obj[i] = extension[i];
 		}
 	}
+	
+	return obj;
 }
 
 String.trim = function(str) {
@@ -526,18 +540,36 @@ var EventDispatcher = new Class({
 		};
 		return this;
 	},
-	dispatchEvent: function(event) {
+	listen: function(selector, type, listener) {
+		var wrap = function(event) {
+			var target = event.target.parent(selector);
+			if (target) {
+				return listener.call(target, event);
+			}
+		}
+		if (!listener.hasOwnProperty('__listen')) listener.__listen = {};
+		listener.__listen[simpli5.getId(this)] = wrap;
+		return this.on(type, wrap);
+	},
+	unlisten: function(selector, type, listener) {
+		if (!listener.hasOwnProperty('__listen')) return;
+		var wrap = listener.__listen[simpli5.getId(this)];
+		if (wrap) this.un(type, wrap);
+		return this;
+	},
+	dispatchEvent: function(event, clear) {
 		if (!this.__events) return;
 		var events = this.__events[event.type];
 		if (!events) return;
+		if (clear) delete this.__events[event.type];
 		for (var i = 0, l = events.length; i < l; i++) {
 			events[i].call(this, event);
 		}
 	},
-	dispatch: function(eventType) {
+	dispatch: function(eventType, clear) {
 		if (!this.__events || !this.__events[eventType] || !this.__events[eventType].length) return;
 		
-		this.dispatchEvent(new CustomEvent(eventType));
+		this.dispatchEvent(new CustomEvent(eventType), clear);
 	}
 });
 
@@ -580,7 +612,9 @@ extend(window, {
 
 ElementArray.map({
 	on: 'forEach',
-	un: 'forEach'
+	un: 'forEach',
+	listen: 'forEach',
+	unlisten: 'forEach'
 });
 
 
@@ -647,6 +681,7 @@ var simpli5 = (function() {
 	function onDomLoaded() {
 		simpli5.dispatch('domready');
 		simpli5.mold(document.body);
+		simpli5.dispatch('molded');
 		simpli5.checkLoading();
 	}
 	
@@ -736,9 +771,8 @@ var simpli5 = (function() {
 		},
 		
 		checkLoading: function() {
-			if (!simpli5.ready && External.loadCount == 0) {
-				simpli5.ready = true;
-				simpli5.dispatch('ready');
+			if (External.loadCount == 0) {
+				simpli5.dispatch('ready', true);
 			}
 		}
 	});
@@ -751,7 +785,9 @@ var simpli5 = (function() {
 extend(Node.prototype, {
 	parent: function(selector) {
 		var node = this.parentNode;
+		var isElement = !!selector.tagName;
 		while (node) {
+			if (isElement && node == selector) return node;
 			if ('matches' in node && node.matches(selector)) return node;
 			node = node.parentNode;
 		}
@@ -846,6 +882,7 @@ extend(HTMLElement.prototype, {
 				value += 'px';
 			}
 			this.style[name] = value;
+			if (this.getAttribute('style') == '') this.removeAttr('style');
 		} else {
 			value = this.style[name];
 			if (!value) {
@@ -906,7 +943,9 @@ extend(HTMLElement.prototype, {
 		
 		if (typeof value === "number") value += '';
 		
-		if (value instanceof Array && this.type == 'radio' || this.type == 'checkbox') {
+		if (typeof value == 'boolean' && (this.type == 'radio' || this.type == 'checkbox')) {
+			this.checked = value;
+		} else if (value instanceof Array && (this.type == 'radio' || this.type == 'checkbox')) {
 			this.checked = value.indexOf(this.value) != -1;
 		} else if (this.nodeName == 'SELECT') {
 			if (value) {
@@ -924,6 +963,7 @@ extend(HTMLElement.prototype, {
 		} else {
 			this.value = value;
 		}
+		return this;
 	},
 	show: function(animate, callback) {
 		if (animate && this.css('-webkit-transition-property').indexOf('opacity') != -1) {
@@ -954,7 +994,11 @@ extend(HTMLElement.prototype, {
 			return this.css('display', 'none');
 		}
 	},
-	visible: function() {
+	visible: function(value, animate, callback) {
+		if (value !== undefined) {
+			return value ? this.show(animate, callback) : this.hide(animate, callback);
+			return this;
+		}
 		return this.rect().width != 0;
 	}
 });
@@ -1492,8 +1536,8 @@ BindableArray = new Class({
 		var items = args.slice(2);
 		var result = Array.prototype.splice.apply(this, args);
 		
-		if (howmany) {
-			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
+		if (result.length) {
+			this.dispatchEvent(new ArrayChangeEvent('remove', index, result.length - 1, result));
 		}
 		if (items.length) {
 			this.dispatchEvent(new ArrayChangeEvent('add', index, items.length - 1, items));
@@ -2016,7 +2060,6 @@ var External = new Component({
 	},
 	
 	onLoaded: function(data) {
-		External.loadCount -= 1;
 		
 		if (!data) return;
 		
@@ -2030,19 +2073,33 @@ var External = new Component({
 				node.setAttribute(attr.nodeName, attr.nodeValue);
 			}
 		}
-		simpli5.mold(nodes);
 		
 		var head = document.find('head'), match;
+		var scriptCount = 0;
 		
 		while ( (match = this.scriptExp.exec(data)) != null) {
 			var script = document.createElement('script'), txt = match[0], content = match[1], src = txt.match(this.scriptSrcExp);
 			script.type = 'text/javascript';
-			if (src) script.src = src[1];
+			if (src) {
+				script.src = src[1];
+				scriptCount++;
+			}
 			script.innerHTML = content;
+			script.onload = function() {
+				if (--scriptCount == 0) {
+					simpli5.mold(nodes);
+					External.loadCount -= 1;
+					simpli5.checkLoading();
+				}
+			}
 			head.appendChild(script);
 		}
 		
-		simpli5.checkLoading();
+		if (scriptCount == 0) {
+			External.loadCount -= 1;
+			simpli5.mold(nodes);
+			simpli5.checkLoading();
+		}
 	},
 	
 	onError: function() {
@@ -2060,7 +2117,7 @@ var Ajax = {
 	},
 	
 	send: function(options) {
-		extend(options, Ajax.defaults);
+		extend(options, Ajax.defaults, false);
 		
 		var xhr = new XMLHttpRequest(), response = new Response();
 		response.xhr = xhr;
@@ -2083,23 +2140,28 @@ var Ajax = {
 		if (options.error) response.on('error', options.error);
 		
 		var lastIndex = 0, results;
-		xhr.onreadystatechange = function() {
-			if (xhr.readyState == 3) {
-				try {
-					results = options.format(xhr.responseText.substring(lastIndex));
-					lastIndex = xhr.responseText.length;
-				} catch(e) {}
-				response.trigger('progress', results);
-			} else if (xhr.readyState == 4) {
-				try {
-					results = options.format(xhr.responseText);
-				} catch(e) {
-					// formating error
-					alert(e);
-				}
-				response.trigger('complete', results);
+		xhr.onprogress = function(e) {
+			try {
+				results = options.format(xhr.responseText.substring(lastIndex), xhr);
+				lastIndex = xhr.responseText.length;
+			} catch(e) {}
+			response.trigger('progress', results);
+		};
+		
+		xhr.onerror = function(e) {
+			response.trigger('error', xhr);
+		};
+		
+		xhr.onload = function(e) {
+			try {
+				results = options.format(xhr.responseText, xhr);
+			} catch(e) {
+				// formating error
+				alert(e);
 			}
-		}
+			response.trigger('complete', results);
+		};
+		
 		xhr.send();
 		return response;
 	}
@@ -2111,28 +2173,29 @@ var Ajax = {
 var AjaxService = new Component({
 	extend: Component,
 	register: 'services service',
-	properties: ['prefix', 'user', 'password'],
+	properties: ['url-prefix', 'user', 'password'],
 	events: ['progress', 'complete', 'error'],
 	
 	constructor: function() {
-		var ajax = this.ajax = new AjaxEndpoint(), service = this;
-		this.headers = {};
-		this.prefix = '';
+		var service = this;
+		var headers = this.headers = {};
+		this.urlPrefix = '';
 		
 		this.findAll('headers header').forEach(function(header) {
 			if (!header.hasAttribute('name') || !header.hasAttribute('value')) return;
-			this.headers[header.getAttribute('name')] = header.getAttribute('value');
+			headers[header.getAttribute('name')] = header.getAttribute('value');
 		});
 		
 		this.calls = this.findAll('call').forEach(function(call) {
 			call.service = service;
+			if (call.hasAttribute('name')) service[call.getAttribute('name')] = call;
 		});
 	},
 	
 	send: function(method, url) {
 		return Ajax.send({
 			method: method,
-			url: this.prefix + url,
+			url: this.urlPrefix + url,
 			format: this.format,
 			headers: this.headers,
 			user: this.user,
@@ -2149,7 +2212,7 @@ var AjaxService = new Component({
 var AjaxCall = new Component({
 	extend: Component,
 	register: 'services service call',
-	properties: ['method', 'url', 'autoTrigger'],
+	properties: ['method', 'url', 'auto-trigger'],
 	events: ['progress', 'complete', 'error'],
 	
 	constructor: function() {
@@ -2176,8 +2239,18 @@ var AjaxCall = new Component({
 		this._autoTriggerInterval = setInterval(this.trigger.boundTo(this), value);
 	},
 	
-	trigger: function() {
-		this.service.send(this.method, this.url).on('complete', this.complete.boundTo(this));
+	trigger: function(params) {
+		if (params) {
+			if ( !(params instanceof Array) ) params = [params];
+			for (var i = 0; i < params.length; i++) {
+				var url = this.url, param = params[i];
+				for (var prop in param) url = url.replace(':' + prop, param[prop]);
+				var response = this.service.send(this.method, url).on('complete', this.complete.boundTo(this));
+				if (params.length == 1) return response;
+			}
+		} else {
+			return this.service.send(this.method, this.url).on('complete', this.complete.boundTo(this));
+		}
 	},
 	
 	progress: function(data) {
@@ -2185,6 +2258,7 @@ var AjaxCall = new Component({
 	},
 	
 	complete: function(data) {
+		this.data = data;
 		this.dispatchEvent(new DataEvent('complete', data));
 	},
 	
@@ -2204,6 +2278,7 @@ var Response = new Class({
 		if (!this.handlers.hasOwnProperty(type)) return;
 		var params = toArray(arguments).slice(1);
 		this.handlers[type].push(params);
+		return this;
 	},
 	
 	un: function(type, handler) {
@@ -2216,14 +2291,15 @@ var Response = new Class({
 				handlers.splice(i--, 1);
 			}
 		}
+		return this;
 	},
 	
 	triggerComplete: function(data) {
-		this.trigger('complete', data);
+		return this.trigger('complete', data);
 	},
 	
 	triggerError: function(error) {
-		this.trigger('error', error);
+		return this.trigger('error', error);
 	},
 	
 	trigger: function(type, data) {
@@ -2250,6 +2326,7 @@ var Response = new Class({
 				}
 			}
 		}
+		return this;
 	}
 });
 

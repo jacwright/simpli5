@@ -97,7 +97,15 @@ var Component, Configuration;
 				var element = this;
 				this.data = data;
 				
-				if (!element.tagName && this.template) {
+				// firefox throws an error for just accessing the tagName property, even though it exists.
+				var firefoxError = false;
+				try {
+					element.tagName;
+				} catch (e) {
+					firefoxError = true;
+				}
+				
+				if ((firefoxError || !element.tagName) && this.template) {
 					element = this.template.createBound();
 					element.__proto__ = this.__proto__;
 					if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
@@ -161,9 +169,6 @@ var External = new Component({
 	register: 'external, [external]',
 	properties: ['url', 'external', 'auto-load'],
 	events: ['loaded'],
-	scriptRemoveExp: /<script[\s\S]+?script>/g,
-	scriptExp: /<script[^>]*>([\s\S]*?)<\/script>/g,
-	scriptSrcExp: /<script[^>]*src="([^"]*)"[^>]*>/,
 	
 	constructor: function() {
 		this.autoLoad = true;
@@ -185,33 +190,58 @@ var External = new Component({
 	},
 	
 	onLoaded: function(data) {
-		External.loadCount -= 1;
 		
 		if (!data) return;
 		
-		var html = data.replace(this.scriptRemoveExp, '');
+		var html = data;
 		var nodes = this.replace(html);
 		if (nodes.length == 1) {
 			var node = nodes[0];
 			for (var i = 0; i < this.attributes.length; i++) {
 				var attr = this.attributes[i];
-				if (attr.nodeName == 'external' || (attr.nodeName == 'url' && this.tagName == 'EXTERNAL')) continue;
-				node.setAttribute(attr.nodeName, attr.nodeValue);
+				if (this.properties.indexOf(attr.nodeName) == -1) {
+					node.setAttribute(attr.nodeName, attr.nodeValue);
+				}
 			}
 		}
-		simpli5.mold(nodes);
 		
-		var head = document.find('head'), match;
+		// TODO vet against other browsers
+		var unsupported = navigator.userAgent.toLowerCase().indexOf('firefox') == -1;
 		
-		while ( (match = this.scriptExp.exec(data)) != null) {
-			var script = document.createElement('script'), txt = match[0], content = match[1], src = txt.match(this.scriptSrcExp);
-			script.type = 'text/javascript';
-			if (src) script.src = src[1];
-			script.innerHTML = content;
-			head.appendChild(script);
+		// replace all scripts with newly created but matching ones so that they'll execute. Firefox doesn't need it
+		var scriptCount = 0;
+		var scripts = nodes.findAll('script');
+		for (var i = 0; i < scripts.length; i++) {
+			var script = scripts[i];
+			
+			if (unsupported) {
+				var old = script;
+				script = document.createElement('script');
+				for (var j = 0; j < old.attributes.length; j++) {
+					var attr = old.attributes[j];
+					if (attr.name) script.setAttribute(attr.name, attr.value);
+				}
+				script.innerHTML = old.innerHTML;
+				old.replace(script);
+			}
+			
+			if (script.hasAttribute('src')) {
+				scriptCount++;
+				script.onload = function() {
+					if (--scriptCount == 0) {
+						simpli5.mold(nodes);
+						External.loadCount -= 1;
+						simpli5.checkLoading();
+					}
+				};
+			}
 		}
 		
-		simpli5.checkLoading();
+		if (scriptCount == 0) {
+			External.loadCount -= 1;
+			simpli5.mold(nodes);
+			simpli5.checkLoading();
+		}
 	},
 	
 	onError: function() {

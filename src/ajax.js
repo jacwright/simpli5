@@ -1,16 +1,78 @@
 
-var Ajax = {
+var Ajax = new Class({
+	extend: Function,
+	
 	defaults: {
 		method: 'get',
 		async: true,
+		prefix: '',
+		headers: {},
 		format: function(data) { return data; }
 	},
 	
+	constructor: function() {
+		this.defaults = extend({}, this.defaults); // copy defaults for local alteration
+		if (this.defaults.headers) {
+			this.defaults.headers = extend({}, this.defaults.headers);
+		}
+	},
+	
+	get: function(url, data) {
+		return this.send({
+			method: 'get',
+			url: url,
+			data: data
+		});
+	},
+	
+	post: function(url, data) {
+		return this.send({
+			method: 'post',
+			url: url,
+			data: data
+		});
+	},
+	
+	put: function(url, data) {
+		return this.send({
+			method: 'put',
+			url: url,
+			data: data
+		});
+	},
+	
+	del: function(url) {
+		return this.send({
+			method: 'delete',
+			url: url,
+			data: data
+		});
+	},
+	
 	send: function(options) {
-		extend(options, Ajax.defaults);
+		// perhaps we should implement a deep copy
+		if (options.headers && this.defaults.headers) {
+			extend(options.headers, this.defaults.headers, false);
+		}
+		extend(options, this.defaults, false);
 		
 		var xhr = new XMLHttpRequest(), response = new Response();
 		response.xhr = xhr;
+		
+		if (options.data && options.method.toLowerCase() == 'get') {
+			var append = [];
+			var appender = options.url.indexOf('?') == -1 ? '?' : '&';
+			for (var i in options.data) {
+				if (options.data.hasOwnProperty(i))
+					append.push(encodeURIComponent(i) + '=' + encodeURIComponent(options.data[i]));
+			}
+			options.url += appender + append.join('&');
+			delete options.data;
+		}
+		
+		if (options.prefix && !/\w+:\/\//.test(options.url)) {
+			options.url = options.prefix + options.url;
+		}
 		
 		if (options.user) {
 			xhr.open(options.method, options.url, options.async, options.user, options.password);
@@ -21,36 +83,54 @@ var Ajax = {
 		if (options.headers) {
 			for (var i in options.headers) {
 				if (!options.headers.hasOwnProperty(i)) continue;
+				if (i.toLowerCase() == 'content-type' && !options.data) continue;
 				xhr.setRequestHeader(i, options.headers[i]);
 			}
 		}
-
-		if (options.progress) response.on('progress', options.complete);
+		
+		if (options.progress) response.on('progress', options.progress);
 		if (options.complete) response.on('complete', options.complete);
 		if (options.error) response.on('error', options.error);
 		
 		var lastIndex = 0, results;
-		xhr.onreadystatechange = function() {
-			if (xhr.readyState == 3) {
-				try {
-					results = options.format(xhr.responseText.substring(lastIndex));
-					lastIndex = xhr.responseText.length;
-				} catch(e) {}
-				response.trigger('progress', results);
-			} else if (xhr.readyState == 4) {
-				try {
-					results = options.format(xhr.responseText);
-				} catch(e) {
-					// formating error
-					alert(e);
-				}
-				response.trigger('complete', results);
+		xhr.onprogress = function(e) {
+			try {
+				results = options.format(xhr.responseText.substring(lastIndex), xhr);
+				lastIndex = xhr.responseText.length;
+			} catch(e) {}
+			response.trigger('progress', results);
+		};
+		
+		xhr.onerror = function(e) {
+			response.trigger('error', xhr);
+		};
+		
+		xhr.onload = function(e) {
+			try {
+				results = options.format(xhr.responseText, xhr);
+			} catch(e) {
+				// formating error
+				alert(e);
 			}
+			response.trigger('complete', results);
+		};
+		
+		if (options.data) {
+			xhr.send(options.data);
+		} else {
+			xhr.send();
 		}
-		xhr.send();
+		
 		return response;
+	},
+	
+	jsonFormat: function(data) {
+		if (data == '' || data == null) return null;
+		else return JSON.parse(data);
 	}
-};
+});
+
+Class.makeClass(Ajax, Ajax, true); // make Ajax a singleton instance of itself 
 
 /**
  * Represents a single service which can be 
@@ -58,28 +138,30 @@ var Ajax = {
 var AjaxService = new Component({
 	extend: Component,
 	register: 'services service',
-	properties: ['prefix', 'user', 'password'],
+	properties: ['url-prefix', 'user', 'password'],
 	events: ['progress', 'complete', 'error'],
 	
-	constructor: function() {
-		var ajax = this.ajax = new AjaxEndpoint(), service = this;
-		this.headers = {};
-		this.prefix = '';
+	constructor: function(connection) {
+		this.connection = connection || Ajax;
+		var service = this;
+		var headers = this.headers = {};
+		this.urlPrefix = '';
 		
 		this.findAll('headers header').forEach(function(header) {
 			if (!header.hasAttribute('name') || !header.hasAttribute('value')) return;
-			this.headers[header.getAttribute('name')] = header.getAttribute('value');
+			headers[header.getAttribute('name')] = header.getAttribute('value');
 		});
 		
 		this.calls = this.findAll('call').forEach(function(call) {
 			call.service = service;
+			if (call.hasAttribute('name')) service[call.getAttribute('name')] = call;
 		});
 	},
 	
 	send: function(method, url) {
-		return Ajax.send({
+		return this.connection.send({
 			method: method,
-			url: this.prefix + url,
+			url: this.urlPrefix + url,
 			format: this.format,
 			headers: this.headers,
 			user: this.user,
@@ -96,7 +178,7 @@ var AjaxService = new Component({
 var AjaxCall = new Component({
 	extend: Component,
 	register: 'services service call',
-	properties: ['method', 'url', 'autoTrigger'],
+	properties: ['method', 'url', 'auto-trigger'],
 	events: ['progress', 'complete', 'error'],
 	
 	constructor: function() {
@@ -123,8 +205,18 @@ var AjaxCall = new Component({
 		this._autoTriggerInterval = setInterval(this.trigger.boundTo(this), value);
 	},
 	
-	trigger: function() {
-		this.service.send(this.method, this.url).on('complete', this.complete.boundTo(this));
+	trigger: function(params) {
+		if (params) {
+			if ( !(params instanceof Array) ) params = [params];
+			for (var i = 0; i < params.length; i++) {
+				var url = this.url, param = params[i];
+				for (var prop in param) url = url.replace(':' + prop, param[prop]);
+				var response = this.service.send(this.method, url).on('complete', this.complete.boundTo(this));
+				if (params.length == 1) return response;
+			}
+		} else {
+			return this.service.send(this.method, this.url).on('complete', this.complete.boundTo(this));
+		}
 	},
 	
 	progress: function(data) {
@@ -132,6 +224,7 @@ var AjaxCall = new Component({
 	},
 	
 	complete: function(data) {
+		this.data = data;
 		this.dispatchEvent(new DataEvent('complete', data));
 	},
 	
@@ -151,6 +244,7 @@ var Response = new Class({
 		if (!this.handlers.hasOwnProperty(type)) return;
 		var params = toArray(arguments).slice(1);
 		this.handlers[type].push(params);
+		return this;
 	},
 	
 	un: function(type, handler) {
@@ -163,14 +257,15 @@ var Response = new Class({
 				handlers.splice(i--, 1);
 			}
 		}
+		return this;
 	},
 	
 	triggerComplete: function(data) {
-		this.trigger('complete', data);
+		return this.trigger('complete', data);
 	},
 	
 	triggerError: function(error) {
-		this.trigger('error', error);
+		return this.trigger('error', error);
 	},
 	
 	trigger: function(type, data) {
@@ -197,7 +292,20 @@ var Response = new Class({
 				}
 			}
 		}
+		return this;
 	}
 });
 
-
+var AjaxError = new Class({
+	extend: Error,
+	
+	constructor: function(msg, status) {
+		this.name = 'AjaxError';
+		this.message = msg;
+		this.status = status;
+	},
+	
+	toString: function() {
+		return 'AjaxError: ' + this.status + ' - ' + this.message;
+	}
+});

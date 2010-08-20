@@ -7,6 +7,7 @@ var TreeMenu = new Component({
 	events: ['select', 'deselect', 'open', 'close', 'itemover', 'itemout', 'itemclick', 'itemdblclick'],
 	
 	constructor: function() {
+		this.menu = this;
 		this.submenu = this.find('menu') || this.append('<menu></menu>').pop();
 		this.items = this.findAll('menu-item');
 		this.submenu.append(this.items);
@@ -15,11 +16,12 @@ var TreeMenu = new Component({
 		});
 		
 		Bind.setter(this, 'data', this.onDataChange.boundTo(this));
-		this.on('DOMNodeInserted,DOMNodeRemoved', this.onChild.boundTo(this));
-		this.on('select', this.onSelect.boundTo(this));
-		this.on('deselect', this.onDeselect.boundTo(this));
-		this.on('open,close', this.sizeUp.boundTo(this));
+		this.on('DOMNodeInserted,DOMNodeRemoved', this.onChild);
+		this.on('select', this.onSelect);
+		this.on('deselect', this.onDeselect);
+		this.on('open,close', this.sizeUp);
 		this.on('scroll', this.onScroll);
+		this.on('click', this.onClick);
 		this.on('mousedown', Event.stop);
 		
 		this.sizeUp();
@@ -67,6 +69,15 @@ var TreeMenu = new Component({
 		this.findAll('menu-item').call('close');
 	},
 	
+	get iconFunction() {
+		return this._iconFunction;
+	},
+	
+	set iconFunction(value) {
+		if (this._iconFunction == value) return;
+		this._iconFunction = value;
+	},
+	
 	getOpen: function(prop) {
 		var nodes = [];
 		this.items.forEach(function(item) {
@@ -78,8 +89,8 @@ var TreeMenu = new Component({
 	},
 	
 	setOpen: function(prop, value) {
-		this.un('open,close', this.sizeUp.boundTo(this));
 		if (!value || !(value instanceof Array) || !value.length) return;
+		this.un('open,close', this.sizeUp.boundTo(this));
 		var props = {}, items = this.items;
 		this.flattenedData.forEach(function(data, index) {
 			props[data[prop]] = items[index];
@@ -138,6 +149,7 @@ var TreeMenu = new Component({
 				var items = [];
 				this.data.forEach(function(data) {
 					var item = new TreeMenuItem();
+					item.menu = list.menu;
 					item.data = data;
 					items.push(item);
 				});
@@ -176,7 +188,13 @@ var TreeMenu = new Component({
 		}
 	},
 	
-	onScroll: function(event) {
+	onClick: function(event) {
+		if (event.target == this && this.selected) {
+			this.selected.deselect();
+		}
+	},
+	
+	onScroll: function() {
 		var item = this.find('menu-item.poppingout');
 		if (item) {
 			item.onOut();
@@ -189,7 +207,7 @@ var TreeMenuItem = new Component({
 	template: new Template('<menu-item>',
 		'<opener></opener>',
 		'<content>',
-			'<img src="js/simpli5/images/folder.png" alt="icon" draggable="false"/>',
+			'<icon-space><icon class="{data.icon}"></icon></icon-space>',
 			'<text>{data.label}</text>',
 		'</content>',
 		'<menu></menu>',
@@ -200,6 +218,7 @@ var TreeMenuItem = new Component({
 	constructor: function() {
 		this.opener = this.find('opener');
 		this.content = this.find('content');
+		this.icon = this.find('icon');
 		this.submenu = this.find('menu');
 		if (this.submenu) {
 			this.submenu.on('click', Event.stop);
@@ -228,13 +247,6 @@ var TreeMenuItem = new Component({
 	
 	get isOpen() {
 		return (this.hasClass('open'));
-	},
-	
-	get menu() {
-		if (!this._menu) {
-			this._menu = this.parent('tree-menu');
-		}
-		return this._menu;
 	},
 	
 	open: function() {
@@ -291,11 +303,7 @@ var TreeMenuItem = new Component({
 		
 		// if the text is overflowing the boundary popout the hidden part
 		this.popout = document.body.append('<tree-menu class="popout"><menu><menu-item><content><text>' + this.find('text').html() + '</text></content></menu-item></menu></tree-menu>').pop();
-		this.popout.css({
-			position: 'absolute',
-			zIndex: 10000
-		});
-		var item = this.popout.firstChild;
+		var item = this.popout.firstChild.firstChild;
 		item.className = this.className;
 		var overlap = 4; // add 4px overlap
 		item.css('margin-left', -overflow + overlap);
@@ -319,6 +327,9 @@ var TreeMenuItem = new Component({
 	 */
 	onDataChange: function(prop, old, value) {
 		if (old && old.children instanceof BindableArray) old.children.un('change', this.onDataUpdate.boundTo(this));
+		if (value && this.menu && this.menu.iconFunction) {
+			this.icon.css('background-image', 'url(' + this.menu.iconFunction.call(this, value) + ')');
+		}
 		if (value && value.children instanceof Array) {
 			if ( !(value.children instanceof BindableArray)) Class.makeClass(value.children, BindableArray);
 			value.children.on('change', this.onDataUpdate.boundTo(this));
@@ -351,6 +362,7 @@ var TreeMenuItem = new Component({
 				var items = [];
 				this.data.children.forEach(function(data) {
 					var item = new TreeMenuItem();
+					item.menu = list.menu;
 					item.data = data;
 					items.push(item);
 				});

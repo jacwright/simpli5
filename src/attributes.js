@@ -51,6 +51,7 @@ extend(HTMLElement.prototype, {
 				value += 'px';
 			}
 			this.style[name] = value;
+			if (this.getAttribute('style') == '') this.removeAttr('style');
 		} else {
 			value = this.style[name];
 			if (!value) {
@@ -111,7 +112,9 @@ extend(HTMLElement.prototype, {
 		
 		if (typeof value === "number") value += '';
 		
-		if (value instanceof Array && this.type == 'radio' || this.type == 'checkbox') {
+		if (typeof value == 'boolean' && (this.type == 'radio' || this.type == 'checkbox')) {
+			this.checked = value;
+		} else if (value instanceof Array && (this.type == 'radio' || this.type == 'checkbox')) {
 			this.checked = value.indexOf(this.value) != -1;
 		} else if (this.nodeName == 'SELECT') {
 			if (value) {
@@ -129,6 +132,7 @@ extend(HTMLElement.prototype, {
 		} else {
 			this.value = value;
 		}
+		return this;
 	},
 	show: function(animate, callback) {
 		if (animate && this.css('-webkit-transition-property').indexOf('opacity') != -1) {
@@ -159,7 +163,11 @@ extend(HTMLElement.prototype, {
 			return this.css('display', 'none');
 		}
 	},
-	visible: function() {
+	visible: function(value, animate, callback) {
+		if (value !== undefined) {
+			return value ? this.show(animate, callback) : this.hide(animate, callback);
+			return this;
+		}
 		return this.rect().width != 0;
 	}
 });

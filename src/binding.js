@@ -356,8 +356,8 @@ BindableArray = new Class({
 		var items = args.slice(2);
 		var result = Array.prototype.splice.apply(this, args);
 		
-		if (howmany) {
-			this.dispatchEvent(new ArrayChangeEvent('remove', index, howmany, result));
+		if (result.length) {
+			this.dispatchEvent(new ArrayChangeEvent('remove', index, result.length - 1, result));
 		}
 		if (items.length) {
 			this.dispatchEvent(new ArrayChangeEvent('add', index, items.length - 1, items));
