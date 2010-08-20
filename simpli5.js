@@ -753,7 +753,7 @@ var simpli5 = (function() {
 			for (var i in registry) {
 				var selector = this.selector(i);
 				try {
-					if (element instanceof ElementArray) {
+					if (element instanceof Array) {
 						element.forEach(function(element) {
 							if (!element.__isComponent && element.matches(selector)) element.makeClass(registry[i]);
 						});
@@ -788,7 +788,7 @@ extend(Node.prototype, {
 		var isElement = !!selector.tagName;
 		while (node) {
 			if (isElement && node == selector) return node;
-			if ('matches' in node && node.matches(selector)) return node;
+			else if ('matches' in node && node.matches(selector)) return node;
 			node = node.parentNode;
 		}
 		return null;
@@ -1972,7 +1972,15 @@ var Component, Configuration;
 				var element = this;
 				this.data = data;
 				
-				if (!element.tagName && this.template) {
+				// firefox throws an error for just accessing the tagName property, even though it exists.
+				var firefoxError = false;
+				try {
+					element.tagName;
+				} catch (e) {
+					firefoxError = true;
+				}
+				
+				if ((firefoxError || !element.tagName) && this.template) {
 					element = this.template.createBound();
 					element.__proto__ = this.__proto__;
 					if ( !(element instanceof HTMLElement)) throw 'Components must extend HTMLElement or a subclass.';
@@ -2036,9 +2044,6 @@ var External = new Component({
 	register: 'external, [external]',
 	properties: ['url', 'external', 'auto-load'],
 	events: ['loaded'],
-	scriptRemoveExp: /<script[\s\S]+?script>/g,
-	scriptExp: /<script[^>]*>([\s\S]*?)<\/script>/g,
-	scriptSrcExp: /<script[^>]*src="([^"]*)"[^>]*>/,
 	
 	constructor: function() {
 		this.autoLoad = true;
@@ -2063,36 +2068,48 @@ var External = new Component({
 		
 		if (!data) return;
 		
-		var html = data.replace(this.scriptRemoveExp, '');
+		var html = data;
 		var nodes = this.replace(html);
 		if (nodes.length == 1) {
 			var node = nodes[0];
 			for (var i = 0; i < this.attributes.length; i++) {
 				var attr = this.attributes[i];
-				if (attr.nodeName == 'external' || (attr.nodeName == 'url' && this.tagName == 'EXTERNAL')) continue;
-				node.setAttribute(attr.nodeName, attr.nodeValue);
+				if (this.properties.indexOf(attr.nodeName) == -1) {
+					node.setAttribute(attr.nodeName, attr.nodeValue);
+				}
 			}
 		}
 		
-		var head = document.find('head'), match;
-		var scriptCount = 0;
+		// TODO vet against other browsers
+		var unsupported = navigator.userAgent.toLowerCase().indexOf('firefox') == -1;
 		
-		while ( (match = this.scriptExp.exec(data)) != null) {
-			var script = document.createElement('script'), txt = match[0], content = match[1], src = txt.match(this.scriptSrcExp);
-			script.type = 'text/javascript';
-			if (src) {
-				script.src = src[1];
-				scriptCount++;
-			}
-			script.innerHTML = content;
-			script.onload = function() {
-				if (--scriptCount == 0) {
-					simpli5.mold(nodes);
-					External.loadCount -= 1;
-					simpli5.checkLoading();
+		// replace all scripts with newly created but matching ones so that they'll execute. Firefox doesn't need it
+		var scriptCount = 0;
+		var scripts = nodes.findAll('script');
+		for (var i = 0; i < scripts.length; i++) {
+			var script = scripts[i];
+			
+			if (unsupported) {
+				var old = script;
+				script = document.createElement('script');
+				for (var j = 0; j < old.attributes.length; j++) {
+					var attr = old.attributes[j];
+					if (attr.name) script.setAttribute(attr.name, attr.value);
 				}
+				script.innerHTML = old.innerHTML;
+				old.replace(script);
 			}
-			head.appendChild(script);
+			
+			if (script.hasAttribute('src')) {
+				scriptCount++;
+				script.onload = function() {
+					if (--scriptCount == 0) {
+						simpli5.mold(nodes);
+						External.loadCount -= 1;
+						simpli5.checkLoading();
+					}
+				};
+			}
 		}
 		
 		if (scriptCount == 0) {
@@ -2109,18 +2126,80 @@ var External = new Component({
 
 External.loadCount = 0;
 
-var Ajax = {
+var Ajax = new Class({
+	extend: Function,
+	
 	defaults: {
 		method: 'get',
 		async: true,
+		prefix: '',
+		headers: {},
 		format: function(data) { return data; }
 	},
 	
+	constructor: function() {
+		this.defaults = extend({}, this.defaults); // copy defaults for local alteration
+		if (this.defaults.headers) {
+			this.defaults.headers = extend({}, this.defaults.headers);
+		}
+	},
+	
+	get: function(url, data) {
+		return this.send({
+			method: 'get',
+			url: url,
+			data: data
+		});
+	},
+	
+	post: function(url, data) {
+		return this.send({
+			method: 'post',
+			url: url,
+			data: data
+		});
+	},
+	
+	put: function(url, data) {
+		return this.send({
+			method: 'put',
+			url: url,
+			data: data
+		});
+	},
+	
+	del: function(url) {
+		return this.send({
+			method: 'delete',
+			url: url,
+			data: data
+		});
+	},
+	
 	send: function(options) {
-		extend(options, Ajax.defaults, false);
+		// perhaps we should implement a deep copy
+		if (options.headers && this.defaults.headers) {
+			extend(options.headers, this.defaults.headers, false);
+		}
+		extend(options, this.defaults, false);
 		
 		var xhr = new XMLHttpRequest(), response = new Response();
 		response.xhr = xhr;
+		
+		if (options.data && options.method.toLowerCase() == 'get') {
+			var append = [];
+			var appender = options.url.indexOf('?') == -1 ? '?' : '&';
+			for (var i in options.data) {
+				if (options.data.hasOwnProperty(i))
+					append.push(encodeURIComponent(i) + '=' + encodeURIComponent(options.data[i]));
+			}
+			options.url += appender + append.join('&');
+			delete options.data;
+		}
+		
+		if (options.prefix && !/\w+:\/\//.test(options.url)) {
+			options.url = options.prefix + options.url;
+		}
 		
 		if (options.user) {
 			xhr.open(options.method, options.url, options.async, options.user, options.password);
@@ -2131,11 +2210,12 @@ var Ajax = {
 		if (options.headers) {
 			for (var i in options.headers) {
 				if (!options.headers.hasOwnProperty(i)) continue;
+				if (i.toLowerCase() == 'content-type' && !options.data) continue;
 				xhr.setRequestHeader(i, options.headers[i]);
 			}
 		}
-
-		if (options.progress) response.on('progress', options.complete);
+		
+		if (options.progress) response.on('progress', options.progress);
 		if (options.complete) response.on('complete', options.complete);
 		if (options.error) response.on('error', options.error);
 		
@@ -2162,10 +2242,22 @@ var Ajax = {
 			response.trigger('complete', results);
 		};
 		
-		xhr.send();
+		if (options.data) {
+			xhr.send(options.data);
+		} else {
+			xhr.send();
+		}
+		
 		return response;
+	},
+	
+	jsonFormat: function(data) {
+		if (data == '' || data == null) return null;
+		else return JSON.parse(data);
 	}
-};
+});
+
+Class.makeClass(Ajax, Ajax, true); // make Ajax a singleton instance of itself 
 
 /**
  * Represents a single service which can be 
@@ -2176,7 +2268,8 @@ var AjaxService = new Component({
 	properties: ['url-prefix', 'user', 'password'],
 	events: ['progress', 'complete', 'error'],
 	
-	constructor: function() {
+	constructor: function(connection) {
+		this.connection = connection || Ajax;
 		var service = this;
 		var headers = this.headers = {};
 		this.urlPrefix = '';
@@ -2193,7 +2286,7 @@ var AjaxService = new Component({
 	},
 	
 	send: function(method, url) {
-		return Ajax.send({
+		return this.connection.send({
 			method: method,
 			url: this.urlPrefix + url,
 			format: this.format,
@@ -2330,7 +2423,19 @@ var Response = new Class({
 	}
 });
 
-
+var AjaxError = new Class({
+	extend: Error,
+	
+	constructor: function(msg, status) {
+		this.name = 'AjaxError';
+		this.message = msg;
+		this.status = status;
+	},
+	
+	toString: function() {
+		return 'AjaxError: ' + this.status + ' - ' + this.message;
+	}
+});
 
 Storage.prototype.get = function(key) {
     return JSON.parse(this.getItem(key));
