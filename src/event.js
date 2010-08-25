@@ -213,6 +213,8 @@ var EventDispatcher = new Class({
 		hasEventListener: EventDispatcher.prototype.hasEventListener,
 		on: EventDispatcher.prototype.on,
 		un: EventDispatcher.prototype.un,
+		listen: EventDispatcher.prototype.listen,
+		unlisten: EventDispatcher.prototype.unlisten,
 		createClosures: EventDispatcher.prototype.createClosures
 	});
 })();

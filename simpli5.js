@@ -602,6 +602,8 @@ var EventDispatcher = new Class({
 		hasEventListener: EventDispatcher.prototype.hasEventListener,
 		on: EventDispatcher.prototype.on,
 		un: EventDispatcher.prototype.un,
+		listen: EventDispatcher.prototype.listen,
+		unlisten: EventDispatcher.prototype.unlisten,
 		createClosures: EventDispatcher.prototype.createClosures
 	});
 })();
@@ -2134,6 +2136,7 @@ var Ajax = new Class({
 		async: true,
 		prefix: '',
 		headers: {},
+		creds: false,
 		format: function(data) { return data; }
 	},
 	
@@ -2207,6 +2210,10 @@ var Ajax = new Class({
 			xhr.open(options.method, options.url, options.async);
 		}
 		
+		if (options.creds) {
+			xhr.withCredentials = true;
+		}
+		
 		if (options.headers) {
 			for (var i in options.headers) {
 				if (!options.headers.hasOwnProperty(i)) continue;
@@ -2214,6 +2221,12 @@ var Ajax = new Class({
 				xhr.setRequestHeader(i, options.headers[i]);
 			}
 		}
+		
+		response.on('abort', function() {
+			response.un('abort', arguments.callee);
+			alert('aborting');
+			xhr.abort();
+		});
 		
 		if (options.progress) response.on('progress', options.progress);
 		if (options.complete) response.on('complete', options.complete);
@@ -2242,6 +2255,10 @@ var Ajax = new Class({
 			response.trigger('complete', results);
 		};
 		
+		xhr.onabort = function(e) {
+			response.trigger('abort', xhr);
+		};
+		
 		if (options.data) {
 			xhr.send(options.data);
 		} else {
@@ -2265,7 +2282,7 @@ Class.makeClass(Ajax, Ajax, true); // make Ajax a singleton instance of itself
 var AjaxService = new Component({
 	extend: Component,
 	register: 'services service',
-	properties: ['url-prefix', 'user', 'password'],
+	properties: ['url-prefix', 'user', 'password', 'creds'],
 	events: ['progress', 'complete', 'error'],
 	
 	constructor: function(connection) {
@@ -2292,7 +2309,8 @@ var AjaxService = new Component({
 			format: this.format,
 			headers: this.headers,
 			user: this.user,
-			password: this.password
+			password: this.password,
+			creds: !!this.creds
 		});
 	},
 	
@@ -2368,23 +2386,33 @@ var Response = new Class({
 	},
 	
 	on: function(type, handler) {
-		if (!this.handlers.hasOwnProperty(type)) return;
+		var types = type.split(/\s*,\s*/);
 		var params = toArray(arguments).slice(1);
-		this.handlers[type].push(params);
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			if (!this.handlers.hasOwnProperty(types[i])) continue;
+			this.handlers[types[i]].push(params);
+		}
 		return this;
 	},
 	
 	un: function(type, handler) {
-		if (!this.handlers.hasOwnProperty(type)) {
-			return;
-		}
-		var handlers = this.handlers[type];
-		for (var i = 0; i < handlers.length; i++) {
-			if (handler == handlers[i][0]) {
-				handlers.splice(i--, 1);
+		var types = type.split(/\s*,\s*/);
+		
+		for (var i = 0, l = types.length; i < l; i++) {
+			if (!this.handlers.hasOwnProperty(types[i])) continue;
+			var handlers = this.handlers[types[i]];
+			for (var i = 0; i < handlers.length; i++) {
+				if (handler == handlers[i][0]) {
+					handlers.splice(i--, 1);
+				}
 			}
 		}
 		return this;
+	},
+	
+	abort: function(data) {
+		return this.trigger('abort', data);
 	},
 	
 	triggerComplete: function(data) {
